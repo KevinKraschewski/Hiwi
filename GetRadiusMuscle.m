@@ -2,11 +2,11 @@ classdef GetRadiusMuscle < models.muscle.AMuscleConfig
 
 % For given external Forces/Pressure calculates a fitting radius of the
 % Muscle to given inner Radius r
-properties
-    TendonRadius;
-    Pressure;
-    Xpkts;
-end
+%properties
+%    TendonRadius;
+%    Pressure;
+%    Xpkts;
+%end
 
 %
 %%
