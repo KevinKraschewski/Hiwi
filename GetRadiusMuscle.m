@@ -10,8 +10,8 @@ end
 
 %
 %%
-% F¸r jeden Punkt in xgrid:
-% Hole die Spannung  an dem Punkt f¸r den Muskel und f¸r die Sehne (eval
+% F√ºr jeden Punkt in xgrid:
+% Hole die Spannung  an dem Punkt f√ºr den Muskel und f√ºr die Sehne (eval
 % Funktion in Dynamics  (Daniel))
 %
 
@@ -19,7 +19,7 @@ end
     %Besten Vektoren!
     
     
-% Ueber GG der Kr‰fte holt man sich ueber
+% Ueber GG der Kr√§fte holt man sich ueber
 % SQRT(Stress_Tendon*A_Tendon/Stress_Muscle*PI)=R_Muscle
 % 
 methods(Static)
@@ -167,7 +167,7 @@ function [r_m] = getRadius(S_t,S_m,r_t)
             r_t(length(r_t):length(S_m)) = r_t(length(r_t)); %sinnvoll?
         end
         
-        %%Eingaben untersch l‰ngen, sollte bei getStress nicht vorkommen,
+        %%Eingaben untersch l√§ngen, sollte bei getStress nicht vorkommen,
         %%da jeweils Stress fuer jedes Element aus x zurueck gibt.
         
         %Nicht zufrieden!!!
@@ -215,16 +215,16 @@ function geo = construct(xgrid,r_t)
      S_m=linspace(1,max(xgrid),length(xgrid)).*5^(-2);
      r_m = GetRadiusMuscle.getRadius(S_t,S_m,r_t); %Vector mit gl Dim wie xgrid, Zeilenvektor
     
-     geo = fem.geometry.Belly(xgrid,'Radius',r_m,'InnerRadius',r_t,'Gamma',2);
-     geo.SimulateAndPlot;
+     geo = fem.geometry.Belly(xgrid,'Radius',r_m'-r_t,'InnerRadius',r_t,'Gamma',2);
+    
 end
     function GetRadiusTest
      geo =   GetRadiusMuscle.construct([0 .5 .6 .7 .8 .9 1 1.5 2 2.4 2.5 2.7 3 3.5 4 5 6 6.2 7.1 8 9],.5);
      
-     geo.plot %Plot falsch? bekomme auf jedem Pkt ein r_m, w‰chst in der Konstellation zu Beginn schneller
+     geo.plot %Plot falsch? bekomme auf jedem Pkt ein r_m, w√§chst in der Konstellation zu Beginn schneller
      % und am Ende langsamer.. plot liefert aber nur an ein paar Punkten
      % die "richtige" Konstruktion?! --> needs to be fixed. (Funktioniert,
-     % wenn Vektoren nicht zu groﬂ werden?!)
+     % wenn Vektoren nicht zu gro√ü werden?!)
     end
 end
 end
