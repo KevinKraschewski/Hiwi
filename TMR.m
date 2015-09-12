@@ -14,7 +14,7 @@ classdef TMR<models.muscle.AMuscleConfig
             r_m=@(x)sqrt(x);
             ratio=0.1;
             
-            %Geometrie erzeugung
+            %Geometrie
             geo=TMR.buildGeo(len,r_t(x),r_m(x));
             geo.plot;
             
