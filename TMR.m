@@ -1,4 +1,4 @@
-classdef TMR<models.muscle.AMuscleConfig
+classdef TMR
     methods(Static)
         %%TMR.TestTMR testet die bisherigen Funktionen und plottet die
         %%Auswertungen auf dem Intervall [0,1].
@@ -7,16 +7,13 @@ classdef TMR<models.muscle.AMuscleConfig
             %Funktionen
             m  = models.muscle.Model(models.muscle.examples.Belly);
             mu = m.DefaultMu;
-            x=linspace(0,1);
+            x=linspace(0,1,250);
             y=[1.03,1.4];
             len=1;          
-            r_t=@(x)0.5;
-            r_m=@(x)sqrt(x);
-            ratio=0.1;
+            r_t=@(x) 1;
+            r_m=@(x) 2;
+            constUntil=0.1;
             
-            %Geometrie erzeugung
-            geo=TMR.buildGeo(len,r_t(x),r_m(x));
-            geo.plot;
             
             %Distortionfunctions
             figure
@@ -29,38 +26,78 @@ classdef TMR<models.muscle.AMuscleConfig
             plot(x,Distortion3(x));
             legend('exp','log','linear','Location','northwest');
             title('Different Distortionfunction interpolations');
+            xlabel('position');
+            ylabel('Strain');
             hold off
             
-            %Stressfunctions
-            Stress=TMR.getStressFunction;
-            figure
-            hold on
-            plot(x,Stress(Distortion1(x),ratio));
-            plot(x,Stress(Distortion2(x),ratio));
-            plot(x,Stress(Distortion3(x),ratio));
-            title('Different Stress for different Distortionfunctions')
-            legend('Dist=exp','Dist=log','Dist=linear','Location','northwest');
-            hold off
-            
-            %TendonMuscleRatio plots fuer verschiedene Interpolationenen
-            %der Verzerrung
-            % 1 = Nur Tendon
-            % 0 = Nur Muscle
-            figure
-            hold on
-            title('TMR');
-            TenMR1=TMR.getTendMuscRatio(mu,r_t,r_m,y,'exp');
-            TenMR2=TMR.getTendMuscRatio(mu,r_t,r_m,y,'log');
-            TenMR3=TMR.getTendMuscRatio(mu,r_t,r_m,y,'linear');
-            plot(x,TenMR1(x));
-            plot(x,TenMR2(x));
-            plot(x,TenMR3(x));
-            ylabel('Ratio');
-            xlabel('Position');
-            legend('Dist=exp','Dist=log','Dist=linear','Location','northeast')
-            hold off
-            
-            
+             
+             %TendonMuscleRatio plots fuer verschiedene Interpolationenen
+             %der Verzerrung
+             % 1 = Nur Tendon
+             % 0 = Nur Muscle
+             figure
+             hold on
+             title('TMR');
+             TenMR1=TMR.getTendMuscRatio(mu,r_t,r_m,y,'exp',constUntil);
+             TenMR2=TMR.getTendMuscRatio(mu,r_t,r_m,y,'log',constUntil);
+             TenMR3=TMR.getTendMuscRatio(mu,r_t,r_m,y,'linear',constUntil);
+             plot(x,TenMR1(x));
+             plot(x,TenMR2(x));
+             plot(x,TenMR3(x));
+             ylabel('Ratio');
+             xlabel('Position');
+             legend('Dist=exp','Dist=log','Dist=linear','Location','northeast')
+             hold off
+             
+%            Stressfunctions
+             Stress=TMR.getStressFunction;
+
+             figure
+                
+             [X,Y]=meshgrid(Distortion1(x),TenMR1(x));
+             mesh(X,Y,Stress(X,Y));
+             zlabel('Stress');
+             ylabel('Ratio');
+             xlabel('Strain');
+             title('Stress with exp strain');
+
+             
+             
+             figure
+             
+             
+             [X,Y]=meshgrid(Distortion2(x),TenMR2(x));
+             mesh(X,Y,Stress(X,Y));
+             zlabel('Stress');
+             ylabel('Ratio');
+             xlabel('Strain');
+             title('Stress with log strain');
+             
+             figure
+             
+             [X,Y]=meshgrid(Distortion3(x),TenMR3(x));
+             mesh(X,Y,Stress(X,Y));
+              xlabel('Strain');
+              ylabel('Ratio');
+              zlabel('Stress');
+              title('Stress with linear strain');
+             hold off
+
+             
+             figure
+             hold on
+             a=@(x) r_t(x).*TenMR1(x);
+             plot(x,a(x));
+             b=@(x) r_m(x).*(1-TenMR1(x));
+             plot(x,b(x));
+             legend('Radius Tendon','Radius Muscle');
+             title('Development of the Radii');
+             xlabel('position')
+             ylabel('radius [mm]');
+             hold off
+             
+             Geom=TMR.buildGeo(len,b(x),a(x));
+             Geom.plot;        
             
         end
         
@@ -72,7 +109,7 @@ classdef TMR<models.muscle.AMuscleConfig
         %r_t = Tendonradius
         %r_m = Muskelradius
         function geo = buildGeo(len,r_t,r_m)
-            geo = fem.geometry.Belly(len,'InnerRadius',r_t,'Radius',r_m);
+            geo = fem.geometry.Belly(len,'Radius',r_m,'InnerRadius',r_t);
         end
         
         %%TMR.getDistortionFunction(y,trend) gibt eine Funktion lambda zurueck, die einen Verzerrungsverlauf zwischen y(0) und
@@ -92,9 +129,9 @@ classdef TMR<models.muscle.AMuscleConfig
             
             switch trend
                 case 'exp'
-                    lambda =@(x) y(1).*exp(x.*(log(y(2)/y(1))));
+                    lambda =@(x) y(1)+(y(2)-y(1)).*x.^4;
                 case 'log'                    
-                    lambda =@(x) ((y(2)-y(1))/log(2)).*log(1+x)+y(1);
+                    lambda =@(x)((y(2)-y(1))/log(51)).*log(50.*(1/50+x))+y(1);
                 case 'linear'
                     lambda =@(x) (y(2)-y(1)).*x+y(1);
             end    
@@ -130,7 +167,10 @@ classdef TMR<models.muscle.AMuscleConfig
         %getDistortionFunction).
         %trend liefert die Interpolationsfunktion fuer
         %getDistortionFunction.
-        function [TendonMuscleRatio]=getTendMuscRatio(mu,r_t,r_m,y,trend)
+        
+        %constUntil ist der Parameter, welcher bestimmt bis zu welchem
+        %Punkt es nur Sehne geben soll
+        function [TendonMuscleRatio]=getTendMuscRatio(mu,r_t,r_m,y,trend,constUntil)
 
             Stress=TMR.getStressFunction(mu);
             Distortion=TMR.getDistortionFunction(y,trend);
@@ -143,7 +183,11 @@ classdef TMR<models.muscle.AMuscleConfig
             A=@(x) (r_t(x)+r_m(x)).^2*pi;
             
             %Der Quotient ausgehend von F/A=Stress
-            TendonMuscleRatio=@(y)(F-Stress(Distortion(y),0))./(A(y).*(Stress(Distortion(y),1)-Stress(Distortion(y),0)));
+            
+            
+            TendonMuscleRatio=@(y)(y>=constUntil).*(F-Stress(Distortion(y-constUntil),0))./(A(y).*(Stress(Distortion(y-constUntil),1)-Stress(Distortion(y-constUntil),0)))...
+                +(y<constUntil);
+               
             
         end
     
