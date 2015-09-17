@@ -14,12 +14,6 @@ classdef TMR
             r_m=@(x) 2;
             constUntil=0.1;
             
-<<<<<<< HEAD
-=======
-            %Geometrie
-            geo=TMR.buildGeo(len,r_t(x),r_m(x));
-            geo.plot;
->>>>>>> origin/master
             
             %Distortionfunctions
             figure
