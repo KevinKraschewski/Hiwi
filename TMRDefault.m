@@ -1,26 +1,26 @@
-classdef TMR
+classdef TMRDefault
     methods(Static)
-        %%TMR.TestTMR testet die bisherigen Funktionen und plottet die
-        %%Auswertungen auf dem Intervall [0,1].
-        function TestTMR
+        %%TMR2.TestTMR2 testet die bisherigen Funktionen und plottet die
+        %%Auswertungen auf dem Intervall [a,b].
+        function TestTMRDefault
             %Einige Parameter, fuer Erklaerungen siehe entsprechende
             %Funktionen
             m  = models.muscle.Model(models.muscle.examples.Belly);
             mu = m.DefaultMu;
-            x=linspace(0,1,20);
+            x=linspace(0,3,250);
             y=[1.03,1.4];
             len=1;          
             r_t=@(x) 1;
             r_m=@(x) 2;
-            constUntil=x(2);
+            constUntil=0.1.*max(x);
             
             
             %Distortionfunctions
             figure
             hold on            
-            Distortion1=TMR.getDistortionFunction(y,'exp');
-            Distortion2=TMR.getDistortionFunction(y,'log');
-            Distortion3=TMR.getDistortionFunction(y,'linear');
+            Distortion1=TMRDefault.getDistortionFunction(y,'exp');
+            Distortion2=TMRDefault.getDistortionFunction(y,'log');
+            Distortion3=TMRDefault.getDistortionFunction(y,'linear');
             plot(x,Distortion1(x))
             plot(x,Distortion2(x));
             plot(x,Distortion3(x));
@@ -38,9 +38,9 @@ classdef TMR
              figure
              hold on
              title('TMR');
-             TenMR1=TMR.getTendMuscRatio(mu,r_t,r_m,y,'exp',constUntil);
-             TenMR2=TMR.getTendMuscRatio(mu,r_t,r_m,y,'log',constUntil);
-             TenMR3=TMR.getTendMuscRatio(mu,r_t,r_m,y,'linear',constUntil);
+             TenMR1=TMRDefault.getTendMuscRatio(mu,r_t,r_m,y,'exp',constUntil);
+             TenMR2=TMRDefault.getTendMuscRatio(mu,r_t,r_m,y,'log',constUntil);
+             TenMR3=TMRDefault.getTendMuscRatio(mu,r_t,r_m,y,'linear',constUntil);
              plot(x,TenMR1(x));
              plot(x,TenMR2(x));
              plot(x,TenMR3(x));
@@ -50,7 +50,7 @@ classdef TMR
              hold off
              
 %            Stressfunctions
-             Stress=TMR.getStressFunction;
+             Stress=TMRDefault.getStressFunction;
 
              figure
                 
@@ -84,19 +84,12 @@ classdef TMR
              hold off
 
              
-             figure
-             hold on
-             a=@(x) r_t(x).*TenMR1(x);
-             plot(x,a(x));
-             b=@(x) r_m(x).*(1-TenMR1(x));
-             plot(x,b(x));
-             legend('Radius Tendon','Radius Muscle');
-             title('Development of the Radii');
-             xlabel('position')
-             ylabel('radius [mm]');
-             hold off
              
-             Geom=TMR.buildGeo(len,b(x),a(x));
+             
+             a=@(x) r_t(x).*TenMR1(x);
+             b=@(x) r_m(x).*(1-TenMR1(x));
+             
+             Geom=TMRDefault.buildGeo(len,b(x),a(x));
              Geom.plot;        
             
         end
@@ -104,7 +97,7 @@ classdef TMR
         
         
         
-        %TMR.buildGeo erzeugt Geometrie mit den Parameter:
+        %TMR2.buildGeo erzeugt Geometrie mit den Parameter:
         %len=laenge des Muskel/Sehnen Konstrukts
         %r_t = Tendonradius
         %r_m = Muskelradius
@@ -138,14 +131,20 @@ classdef TMR
             geo = fem.geometry.Belly(len,'Radius',r_m,'InnerRadius',r_t);
         end
         
-        %%TMR.getDistortionFunction(y,trend) gibt eine Funktion lambda zurueck, die einen Verzerrungsverlauf zwischen y(0) und
+        %%TMR2.getDistortionFunction(y,trend) gibt eine Funktion lambda zurueck, die einen Verzerrungsverlauf zwischen y(0) und
         %%y(1) interpoliert und diese plottet.
         %!!x aus [0,1]!!
         %mit 'trend' laesst sich der Verlauf als exponentialfunktion
         %('exp'), als logarithmus ('log') oder als linear ('linear') einstellen.
+        %varargin wird jetzt verwendet um die Möglichkeit zu gewährleisten
+        %die Strainfunction an nur einem Punkt auszuwerten und nicht nur
+        %einen Vektor als Eingabe zu erlauben (zuvor NaN!)
         
         
-        function [lambda] = getDistortionFunction(y,trend)
+        function [lambda] = getDistortionFunction(y,trend,varargin)
+            if(nargin<3)
+                varargin{1}=[0,0];
+            end
             if ~ischar(trend)
                 error('Please use a string for the second input argument')
             end
@@ -153,19 +152,35 @@ classdef TMR
                     error('trend must either be "log", "linear" or "exp"')
             end
             
+            if isscalar(varargin{1})
+                switch trend
+                case 'exp'
+                    lambda = y(1)+(y(2)-y(1)).*(varargin{1}).^4;
+                case 'log'                    
+                    lambda = ((y(2)-y(1))/log(51)).*log(50.*(1/50+varargin{1}))+y(1);
+                case 'linear'
+                    lambda = (y(2)-y(1)).*varargin{1}+y(1);
+                end    
+                
+            
+           
+            else
+            f=@(x) (x-min(x))./(max(x)-min(x));
+            
+            
             switch trend
                 case 'exp'
-                    lambda =@(x) y(1)+(y(2)-y(1)).*x.^4;
+                    lambda =@(x) y(1)+(y(2)-y(1)).*f(x).^4;
                 case 'log'                    
-                    lambda =@(x)((y(2)-y(1))/log(51)).*log(50.*(1/50+x))+y(1);
+                    lambda =@(x)((y(2)-y(1))/log(51)).*log(50.*(1/50+f(x)))+y(1);
                 case 'linear'
-                    lambda =@(x) (y(2)-y(1)).*x+y(1);
+                    lambda =@(x) (y(2)-y(1)).*f(x)+y(1);
             end    
-
+            end
             
         end
         
-        %%TMR.getStressFunction(mu) gibt eine Stressfunktion zurueck.
+        %%TMR2.getStressFunction(mu) gibt eine Stressfunktion zurueck.
         %Eingabeparameter ist der Paramter mu
         %Kein inputArgument -> DefaultMu
         function[Stress]=getStressFunction(mu)
@@ -183,7 +198,7 @@ classdef TMR
             
         end
         
-        %%TMR.getTendMuscRatio(Stress,r_t,r_m) soll den
+        %%TMR2.getTendMuscRatio(Stress,r_t,r_m) soll den
         %%Sehnen-Muskelquotienten fuer eine gegebene Stressfunktion, sowie
         %%inneren und aeusseren Radius der Geometrie zurueckgeben.
         %Paramter:
@@ -198,12 +213,15 @@ classdef TMR
         %Punkt es nur Sehne geben soll
         function [TendonMuscleRatio]=getTendMuscRatio(mu,r_t,r_m,y,trend,constUntil)
 
-            Stress=TMR.getStressFunction(mu);
-            Distortion=TMR.getDistortionFunction(y,trend);
+            Stress=TMRDefault.getStressFunction(mu);
+            Distortion=TMRDefault.getDistortionFunction(y,trend);
+            Distortion2=TMRDefault.getDistortionFunction(y,trend,0);
             
             %Berechne zunaechst die Kraft die an der Sehne aufgebracht
             %werden muss, um die von y(1) vorgegebene Verzerrung zu erreichen
-            F=Stress(Distortion(0),1)*pi*r_t(0)^2;
+            %
+            
+            F=Stress(Distortion2,1)*pi*r_t(0)^2;
             
             %Flaeche als Funktion des Ortes
             A=@(x) (r_t(x)+r_m(x)).^2*pi;
@@ -211,7 +229,7 @@ classdef TMR
             %Der Quotient ausgehend von F/A=Stress
             
             
-            TendonMuscleRatio=@(y)(y>=constUntil).*(F-Stress(Distortion(y-constUntil),0))./(A(y).*(Stress(Distortion(y-constUntil),1)-Stress(Distortion(y-constUntil),0)))...
+            TendonMuscleRatio=@(y)(y>=constUntil).*(F-Stress(Distortion(y-constUntil),0))./(A(y-constUntil).*(Stress(Distortion(y-constUntil),1)-Stress(Distortion(y),0)))...
                 +(y<constUntil);
                
             
