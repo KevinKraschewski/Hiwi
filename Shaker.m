@@ -133,7 +133,7 @@ classdef Shaker < models.muscle.AMuscleConfig
     methods(Static)
         
         function test_ShakerTMR
-            c = Shaker;
+            c = models.muscle.examples.Shaker;
             m = c.createModel;
             c.plotTMR;
             m.plotGeometrySetup;
