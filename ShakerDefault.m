@@ -134,14 +134,17 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
             tmr = (F./A(ycoord) - musclestress)./(tendonstress-musclestress);
         end
         
-        function [ypoints] = getDiscr(this,TMRFunc)
+        function [ypoints] = getDiscr(this,TMRFunc) %TMRFunc muss hier eine Funktion sein!!
+            this.ylen=this.ylen/2;
+            this.maxYPoints=160; %Nur zum Testen!
+            this.maxYPoints=this.maxYPoints/2
+            this.TOL=10^(-2); %Nur zum Testen
             deltaX=this.ylen/4; %Anfangsschrittweite           
             maxdy=this.TOL; %Default maximales dy als Differenzen der TMRFunktionswerte
-            
+
             
             if this.maxYPoints~=0 %Anzahl an Intervallpunkten vorgegeben
                 ypoints=zeros(this.maxYPoints,1); %Initialisieren
-                ypoints(this.maxYPoints)=this.ylen; %Letzten Punkt fest
                 %%Schleife ueber die vorgegebene Anzahl an Punkten
                 %%abzueglich dem letzten Punkt, da dieser Fest ist
                 for i=1 : this.maxYPoints-1 %Erster und letzter Punkt fest
@@ -153,30 +156,41 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
                     end
                     
                     %%Schleife bis Tolerierte Schrittweite erreicht wird
-                    while abs(TMRFunc(ypoints(i))-TMRFunc(ypoints(i)+deltaX))>this.TOL; %Solange die tolerierte Schrittweite nicht erreicht wird repeat
+                    while 1 %Solange die tolerierte Schrittweite nicht erreicht wird repeat
                         if abs(TMRFunc(ypoints(i))-TMRFunc(ypoints(i)+deltaX))<this.TOL;%Schrittweite akzeptiert
                             ypoints(i+1)=ypoints(i)+deltaX;                        %Naechster Punkt ist der alte plus ermitteltes "notwendiges" deltaT 
-                            maxdy=abs(TMRFunc(ypoints(i))-TMRFunc(ypoints(i)+deltaX));
+                            break;
                         else %Schrittweite nicht akzeptiert -> Versuche es mit halber Schrittweite
                        deltaX=deltaX/2;
                         end                        
                     end
                     deltaX=this.ylen/4; %Schrittweite am Ende immer auf Anfangsschrittweite zuruecksetzen
-                end
                     %Letzte Abfrage ob insgesamt die Toleranz erreicht
                     %wurde
-                    if abs(TMRFunc(this.ylen)-TMRFunc(ypoints(this.ylen-1)))>this.TOL; %Alle anderen Punkte erfuellen die Toleranzbedingung -> Letzter Test
-                        maxdy=abs(TMRFunc(this.ylen)-TMRFunc(ypoints(this.ylen-1)));
-                        error(['The Tolerance can not be reached with this amount of points. The max of dy would be ' num2str(maxdy)]);
-                    
-                    else
-                        disp(['The Tolerance was reached with the number of points and the max of dy is' num2str(maxdy)]);
-                    end
+                    if abs(TMRFunc(this.ylen)-TMRFunc(ypoints(i)))<this.TOL; %Irgendwann zuvor Toleranz erreicht -> fertig
+                       maxdy=abs(TMRFunc(this.ylen)-TMRFunc(ypoints(i)));
+                       ypoints(i+1)=this.ylen;
+                       ypoints=ypoints(1:i+1); %Damit nicht x mal der selbe Punkt verwendet wird
+                       disp(['The Tolerance was already reached with the number of ' num2str(i+1) ' points and the max of dy is ' num2str(maxdy)]);
+                       help=0;
+                       break
+                    end                    
+                end
+                if help && i==this.maxYPoints-1 && abs(TMRFunc(this.ylen)-TMRFunc(ypoints(this.maxYPoints-1)))< this.TOL; %Punkte reichen genau aus
+                maxdy=abs(TMRFunc(this.ylen)-TMRFunc(ypoints(this.maxYPoints-1)));
+                ypoints(this.maxYPoints)=this.ylen;
+                disp(['The Tolerance was reached with the amount of ' num2str(this.maxYPoints) ' points and the max of dy is ' num2str(maxdy)]);
+                
+                elseif i==this.maxYPoints-1 && abs(TMRFunc(this.ylen)-TMRFunc(ypoints(this.maxYPoints-1))) > this.TOL; %Nicht genug Punkte fuer gewuenschte Toleranz
+                maxdy=abs(TMRFunc(this.ylen)-TMRFunc(ypoints(this.maxYPoints-1)));
+                disp(['The Tolerance can not be reached with this amount of points. The max of dy would be ' num2str(maxdy)]); %Error oder disp?
+                ypoints(i+1)=this.ylen;
+                end
                 
             else %Nur Toleranz vorgegeben -> So viele Punkte wie "noetig".
                 ypoints=zeros(1000,1); %Preallocation for better performance
                 i=1;
-                
+                this.TOL = 10^(-2); %Nur zum Testen!
                 while 1 %Endless loop until tolerance globally reached
                     
                     %Solange man mit dem naechsten Punkt rechts rausfallen
@@ -184,17 +198,16 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
                     while ypoints(i)+deltaX > this.ylen
                         deltaX=deltaX/2;
                     end                    
-                    
                     if (abs(TMRFunc(ypoints(i))-TMRFunc(this.ylen))) < this.TOL %Toleranz insgesamt erreicht -> Break
                         ypoints(i+1)=this.ylen; %Letzter Punkt fix
-                        ypoints=ypoints(1:i); %Nur die wirklich gebrauchten Punkte verwenden, restl 0en der Preallocation "wegschneiden"
-                        disp(['Tolerance reached and used' num2str(i) 'points, maxDy is' num2str(maxdy)]);
+                        ypoints=ypoints(1:i+1); %Nur die wirklich gebrauchten Punkte verwenden, restl 0en der Preallocation "wegschneiden"
+                        disp(['Tolerance reached and used ' num2str(i) 'points, maxDy is ' num2str(maxdy)]);
                         break
                     else
-                        while abs(TMRFunc(ypoints(i))-TMRFunc(ypoints(i)+deltaX)) > this.TOL
+                        while abs(TMRFunc(ypoints(i))-TMRFunc(ypoints(i)+deltaX)) > this.TOL %Verkleinere Schrittweite bis passt
                         deltaX=deltaX/2;
                         end
-                        maxdy=TMRFunc(ypoints(i))-TMRFunc(ypoints(i)+deltaX);
+                        maxdy=abs(TMRFunc(ypoints(i))-TMRFunc(ypoints(i)+deltaX));
                         ypoints(i+1)=ypoints(i)+deltaX;
                     end
                     i=i+1;
@@ -206,10 +219,26 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
     methods(Access=protected)
         
         function geo = getGeometry(this)
-%             f=
-%             tmrFunc=@(y) (F./A(y)-f.AnisoPassiveMuscle(this.stretchfun(y)))./(f.AnisoPassiveTendon(this.stretchfun(y))-f.AnisoPassiveMuscle(this.stretchfun(y)));
-%             [ypoints] = getDiscr(this,1/x);
-            ypoints=linspace(0,this.ylen,15);
+%             m  = models.muscle.Model(models.muscle.examples.Belly);
+%             mu = m.DefaultMu;
+%             
+%             S_m = models.muscle.functions.MarkertLawOriginal(mu(5),mu(6));
+%             AnisoPassiveMuscle = S_m.getFunction;
+%             S_t = general.functions.CubicToLinear(mu(7),mu(8));
+%             AnisoPassiveTendon = S_t.getFunction;
+%             %Stretchfun und radfun fehlenn!
+%             F = AnisoPassiveTendon(this.stretchfun(0))*pi*this.radfun(0)^2;
+%             
+%             % Fläche als Funktion des Ortes
+%             A = @(y)this.radfun(y).^2*pi;
+%             
+%             tmrFunc=@(y) (F./A(y)-AnisoPassiveMuscle(this.stretchfun(y)))./...
+%                 (AnisoPassiveTendon(this.stretchfun(y))-AnisoPassiveMuscle(this.stretchfun(y)));
+
+            tmrFunc=@(x) exp(-x);
+            [ypoints] = getDiscr(this,tmrFunc);
+%             ypoints=linspace(0,this.ylen,15);
+            plot(ypoints,tmrFunc(ypoints));
             geo= fem.geometry.Belly(ypoints,'Radius',this.radfun,'InnerRadius',0);
         end
         
@@ -244,29 +273,31 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
     methods(Static)
         
         function test_ShakerDefaultTMR
+
             c = ShakerDefault('Stretch','Gauss 0.3');
             m = c.createModel;
             c.plotTMR;
-            
-            c = ShakerDefault('Stretch','Gauss 0.2');
-            m = c.createModel;
-            c.plotTMR;
-            
-            c = ShakerDefault('Stretch','log');
-            m = c.createModel;
-            c.plotTMR;
             m.plotGeometrySetup;
             
-
-            c = ShakerDefault('Stretch','exp');
-            m = c.createModel;
-            c.plotTMR;
-            m.plotGeometrySetup;
-    
-            c = ShakerDefault('Stretch','linear');
-            m = c.createModel;
-            c.plotTMR;
-            m.plotGeometrySetup;
+%             c = ShakerDefault('Stretch','Gauss 0.2');
+%             m = c.createModel;
+%             c.plotTMR;
+%             
+%             c = ShakerDefault('Stretch','log');
+%             m = c.createModel;
+%             c.plotTMR;
+%             m.plotGeometrySetup;
+%             
+% 
+%             c = ShakerDefault('Stretch','exp');
+%             m = c.createModel;
+%             c.plotTMR;
+%             m.plotGeometrySetup;
+%     
+%             c = ShakerDefault('Stretch','linear');
+%             m = c.createModel;
+%             c.plotTMR;
+%             m.plotGeometrySetup;
         end
         
         function test_ShakerDefault
