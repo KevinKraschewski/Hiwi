@@ -45,7 +45,7 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
             this.maxYPoints=this.Options.maxYPoints;
             
             ref = [1.03, 1.4];
-            %Man kann nun ueber 'Gauss Gamma' einen GaußKernel als
+            %Man kann nun ueber 'Gauss Gamma' einen GauÃŸKernel als
             %Stretchfunktion verwenden, wichtig ist das Leerzeichen
             %zwischen Gauss und dem gewuenschten Gamma.
             %Bei groesseren Gamma -> Ungenauigkeiten im maximal Wert, fuehrt zur Unbrauchbarkeit!
@@ -116,7 +116,7 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
             
             F = f.AnisoPassiveTendon(this.stretchfun(0))*pi*this.radfun(0)^2;
             
-            % Fläche als Funktion des Ortes
+            % FlÃ¤che als Funktion des Ortes
             A = @(y)this.radfun(y).^2*pi;
             
             % Extrahiere y-Koordinaten aus den gegebenen Punkten
@@ -135,9 +135,7 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
         end
         
         function [ypoints] = getDiscr(this,TMRFunc) %TMRFunc muss hier eine Funktion sein!!
-            this.ylen=this.ylen/2;
             this.maxYPoints=160; %Nur zum Testen!
-            this.maxYPoints=this.maxYPoints/2
             this.TOL=10^(-2); %Nur zum Testen
             deltaX=this.ylen/4; %Anfangsschrittweite           
             maxdy=this.TOL; %Default maximales dy als Differenzen der TMRFunktionswerte
@@ -229,7 +227,7 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
 %             %Stretchfun und radfun fehlenn!
 %             F = AnisoPassiveTendon(this.stretchfun(0))*pi*this.radfun(0)^2;
 %             
-%             % Fläche als Funktion des Ortes
+%             % FlÃ¤che als Funktion des Ortes
 %             A = @(y)this.radfun(y).^2*pi;
 %             
 %             tmrFunc=@(y) (F./A(y)-AnisoPassiveMuscle(this.stretchfun(y)))./...
