@@ -135,13 +135,11 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
         end
         
         function [ypoints] = getDiscr(this,TMRFunc) %TMRFunc muss hier eine Funktion sein!!
-            this.ylen=this.ylen/2;
-            this.maxYPoints=160; %Nur zum Testen!
-            this.maxYPoints=this.maxYPoints/2
+            this.maxYPoints=0; %Nur zum Testen!
             this.TOL=10^(-2); %Nur zum Testen
             deltaX=this.ylen/4; %Anfangsschrittweite           
             maxdy=this.TOL; %Default maximales dy als Differenzen der TMRFunktionswerte
-
+            temp=1;
             
             if this.maxYPoints~=0 %Anzahl an Intervallpunkten vorgegeben
                 ypoints=zeros(this.maxYPoints,1); %Initialisieren
@@ -172,11 +170,11 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
                        ypoints(i+1)=this.ylen;
                        ypoints=ypoints(1:i+1); %Damit nicht x mal der selbe Punkt verwendet wird
                        disp(['The Tolerance was already reached with the number of ' num2str(i+1) ' points and the max of dy is ' num2str(maxdy)]);
-                       help=0;
+                       temp=0;
                        break
                     end                    
                 end
-                if help && i==this.maxYPoints-1 && abs(TMRFunc(this.ylen)-TMRFunc(ypoints(this.maxYPoints-1)))< this.TOL; %Punkte reichen genau aus
+                if temp && i==this.maxYPoints-1 && abs(TMRFunc(this.ylen)-TMRFunc(ypoints(this.maxYPoints-1)))< this.TOL; %Punkte reichen genau aus
                 maxdy=abs(TMRFunc(this.ylen)-TMRFunc(ypoints(this.maxYPoints-1)));
                 ypoints(this.maxYPoints)=this.ylen;
                 disp(['The Tolerance was reached with the amount of ' num2str(this.maxYPoints) ' points and the max of dy is ' num2str(maxdy)]);
@@ -209,6 +207,7 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
                         end
                         maxdy=abs(TMRFunc(ypoints(i))-TMRFunc(ypoints(i)+deltaX));
                         ypoints(i+1)=ypoints(i)+deltaX;
+                        deltaX=this.ylen/4;
                     end
                     i=i+1;
                 end
