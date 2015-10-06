@@ -135,11 +135,7 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
         end
         
         function [ypoints] = getDiscr(this,TMRFunc) %TMRFunc muss hier eine Funktion sein!!
-<<<<<<< HEAD
             this.maxYPoints=0; %Nur zum Testen!
-=======
-            this.maxYPoints=160; %Nur zum Testen!
->>>>>>> origin/ShakerKK
             this.TOL=10^(-2); %Nur zum Testen
             deltaX=this.ylen/4; %Anfangsschrittweite           
             maxdy=this.TOL; %Default maximales dy als Differenzen der TMRFunktionswerte
