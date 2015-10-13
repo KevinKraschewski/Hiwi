@@ -10,8 +10,8 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
         %of points that are usable
         frequency;
         TOL;
-        maxYPoints; %Default als 0! Fuer die Disc Methode (Abfrage ob der Wert 0 ist)
-        maxXLength;
+        maxN;
+        maxYLength;
     end
     
     methods
@@ -25,10 +25,10 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
             this.addOption('Frequency',50);
             %Default tolerance 0.1
             this.addOption('TOL',10^(-1));
-            %Default maxYPoints 0, as this value is used in a method!
-            this.addOption('maxYPoints',0);
-            %Default maxXLength to 5
-            this.addOption('maxXLength',5);
+            %Default maxYLength to 5
+            this.addOption('maxYLength',5);
+            %Default N points on yAxis (not the total amount of nodes!)
+            this.addOption('maxN',100);
             
             
             
@@ -42,12 +42,14 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
             
             %Sets the frequency property
             this.frequency=this.Options.Frequency;
+%             %Sets the maxN property
+%             this.maxN=this.Options.maxN;
 %             %Sets the tolerance property
 %             this.TOL=this.Options.TOL;
 %             %Sets the maxYPoints property
 %             this.maxYPoints=this.Options.maxYPoints;
-%             %Sets the maxXLength property
-%             this.maxXLength=this.Options.maxXLenghth;
+%             %Sets the maxYLength property
+%             this.maxYLength=this.Options.maxXLenghth;
             
 %             ref = [1.03, 1.4];
 %             %Man kann nun ueber 'Gauss Gamma' einen GaußKernel als
@@ -77,7 +79,7 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
 %             % length (mirror at half)
 %             this.stretchfun = @(y)(y<=len/2) .* (stretchfun_0_1(2*y/len)) ...
 %                 + (y>len/2) .* (stretchfun_0_1(1-2*(y-len/2)/len));
-            
+            this.maxYLength=this.Options.maxYLength;
             this.VelocityBCTimeFun = general.functions.Sinus(this.frequency); %gewuenschte Frequenz
         end
         
@@ -220,62 +222,105 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
 %             end
 %         end
 
-    %%Discret due to y axis.
+        
+    
+%%   
+%%Discr due to function values
      function [ypoints] = getDiscr(this,TMRFunc) %TMRFunc muss hier eine Funktion sein!!
+         tic
          %N=NoElements/4 (noch/2, da nur auf einer haelfte betrachtet
-         N=100; %Default noch mit entspr Abfragen oder im Konstruktor!!
+         N=this.maxN; %Default noch mit entspr Abfragen oder im Konstruktor!!
          N=N/2; %Nur bis zur haelfte
          ypoints=zeros(N,1);
-         dist=zeros(N,1); %Speichere die Abstaende um spaeter an der Mitte zu spiegeln -> Evtl. eleganter
-         j=2; %Erster Punkt ist die 0, fuer den Index in dist und ypoints
-         xDefault=linspace(0,this.ylen/2,1000);
-         TMRFuncComp=TMRFunc(xDefault); %Vergleichswerte fuer spaeter
+         distance=zeros(N,1); %Speichere die Abstaende um spaeter an der Mitte zu spiegeln -> Evtl. eleganter
+         j=2; %Erster Punkt ist die 0, fuer den Index in distance und ypoints
+         yDefault=linspace(0,this.ylen/2,1000);
+         TMRFuncComp=TMRFunc(yDefault); %Vergleichswerte fuer spaeter
          refValue=TMRFunc(0); %Referenzwert um die Toleranz zu checken
-         if this.maxXLength*N*2 < this.ylen
-            error('Can not reach maxXLength with this amount of points');
+%          posChange=0; %Verwendet fuer den refine part, falls die maximale Intervalllaenge zu gross ist und noch Punkte verfuegbar sind
+         compare=abs(TMRFuncComp(2:length(TMRFuncComp))-TMRFuncComp(1:length(TMRFuncComp)-1))>this.TOL; %Sollte die Distanz zwischen zwei benachbarten Punkten die Toleranz ueberschreiten -> Refine, damit Rest funktioniert
+         compare=find(compare); %Indices der Intervalle mit TOL Ueberschreitung
+         while ~isempty(compare) %Solange es Intervalle gibt die nicht passen -> Selbe Logik wie unten
+             posChange=0;
+             for k=1 : length(compare)
+                 yDefault=[yDefault(1:compare(k)+posChange) (yDefault(compare(k)+posChange)+yDefault(compare(k)+1+posChange))/2 yDefault(compare(k)+1+posChange:length(yDefault))];
+             end
+         TMRFuncComp=TMRFunc(yDefault);    
+         compare=abs(TMRFuncComp(2:length(TMRFuncComp))-TMRFuncComp(1:length(TMRFuncComp)-1))>this.TOL; %Sollte die Distanz zwischen zwei benachbarten Punkten die Toleranz ueberschreiten -> Refine, damit Rest funktioniert
+         compare=find(compare);
+         posChange=posChange+1;         
          end
-        for i=1 : 1000; %Index merken wenn Tol ueberschritten
+         posChange=0; %Um Unten weitermachen zu koennen
+         if this.maxYLength*N*2 < this.ylen
+            error('Can not reach maxYLength with this amount of points');
+         end
 
-            if(abs(TMRFuncComp(i)-refValue)>this.TOL && i<=1000) %Erster Punkt TOL ueberschreitung -> Vorheriger in ypoints
+        for i=1 : length(yDefault); %Index merken wenn Tol ueberschritten
+            
+            if(abs(TMRFuncComp(i)-refValue)>this.TOL && i<=length(yDefault)) %Erster Punkt TOL ueberschreitung -> Vorheriger in ypoints
                 refValue=TMRFuncComp(i-1); %Vergleichs y Wert
-                ypoints(j)=xDefault(i-1);
-                dist(j-1)=ypoints(j)-ypoints(j-1);
+                ypoints(j)=yDefault(i-1);
+                distance(j-1)=ypoints(j)-ypoints(j-1);
                 j=j+1;
                 if j>N %Bei jeder Veraenderung von ypoints
                 %%Alle Punkte verwendet, fertig -> Diverse Abfragen (maxX? gesamtTol?)
                    if(abs(refValue-TMRFunc(this.ylen/2))>this.TOL) %Toleranz insgesamt nicht erreicht 
                         error('Tolerance can not be reached with this amount of points') 
                    end
-                   for k=2:N-1 %Gucken ob maxX ueberschritten wird, letzter Punkt gesondert, da nicht unbedingt der mittlere Punkt                      
-                       if(abs(ypoints(k-1)-ypoints(k))>this.maxXLength)
-                           error('can not reach maxXLength with this amount of points');
-                       end                      
+                   if(abs(max(distance))>this.maxYLength)
+                       error('Can not fall below maxYLength with this amount of points');
                    end
-                   if (2*abs(ypoints(N)-this.ylen)>this.maxXLength) %Dist zwischen letztem Punkt links und erstem rechts
-                       error('can not reach maxXLength with this amount of points');
+                   if (2*abs(ypoints(N)-this.ylen)>this.maxYLength) %distance zwischen letztem Punkt links und erstem rechts
+                       error('can not fall below maxYLength with this amount of points');
                    end
                 end
                
-            elseif i+1==1001 %Toleranz wird am Ende nicht mehr ueberschritten -> verfuegbarer Punkt wird Mittelpunkt
-                %%Noch Punkte uebrig -> refine, falls maxXLength nicht
+            elseif i+1==length(yDefault) %Toleranz wird am Ende nicht mehr ueberschritten -> verfuegbarer Punkt wird Mittelpunkt
+                %%Noch Punkte uebrig -> refine, falls maxYLength nicht
                 %%eingehalten TOL erreicht
                 ypoints(j)=this.ylen/2;
                 ypoints=ypoints(1:j); %Vektor kuerzen um RAM Explosion zu verhindern :D
-                dist(j-1)=ypoints(j)-ypoints(j-1); %Abstaende zwischen den Punkten speichern, fuer spaeter
-                dist=dist(1:j-1);
+                distance(j-1)=ypoints(j)-ypoints(j-1); %Abstaende zwischen den Punkten speichern, fuer spaeter
+                distance=distance(1:j-1);
             end
         end
+        %%Bis hier sind die Punkte gesetzt um die Toleranz einzuhalten!
+        %%weiter sind hier noch Punkte uebrig um zu Verfeinern ->
+        %%maxYLength einhalten
+        k=find(distance>this.maxYLength);  %Einmal vorher fuer 1. Abfrage, find liefert die Indices des Vektors die ungleich 0 sind in einem Vektor   
+        usablePoints=2*N-2*j+1; %Auf dem gesamten Intervall
+%Refine funktioniert jetzt fuer den Fall, dass genug Punkte zur Verfuegung
+%stehen
+        while max(distance>this.maxYLength)==1 && length(k)*2 <= usablePoints %Laenge von k sind mind. Anzahl an neuen Punkten auf einer Haelfte
+            
+            for i=1:length(k) %Iteration ueber die Intervalle in denen maxX ueberschritten zwischen die Punkte einene weiteren setzen.
+                ypoints=[ypoints(1:k(i)+posChange); (ypoints(k(i)+posChange)+ypoints(k(i)+1+posChange))/2; ypoints(k(i)+1+posChange:length(ypoints))]; %y veraendert sich nach einem Schleifendurchlauf -> PosChange+1
+                distance=[distance(1:k(i)+posChange-1);distance(k(i)+posChange)/2; distance(k(i)+posChange)/2 ; distance(k(i)+1+posChange:length(distance))]; %Abstand entsprechend angepasst -> halbiert dafuer 2mal und posChange+2
+                posChange=posChange+1;
+                j=j+1; %Fuer das Spiegeln an der Mitte
+            end
+            usablePoints=usablePoints-2*length(k); %Punkte gesetzt -> nicht mehr verwendbar            
+            k=find(distance>this.maxYLength);      
+            posChange=0;
+        end
+        if(max(k)>=1)
+            error('Can not fall below maxYLength with this amount of points');
+        end
+        %Ansonsten maxYLength passt -> ypoints fertig machen
         %Definitiv verbessern! Aber funktioniert xD
         %%"Spiegelt" an der Mitte
-        ypoints2=zeros(length(ypoints),1);
-        dist=flipud(dist); %UU Auch oben loeschen
-        ypoints2(1)=ypoints(j);
-        ypoints2(length(ypoints))=ypoints(j)+this.ylen/2; %Nicht sicher, sollte aber passen
-        for i=2:length(ypoints)-1
-            ypoints2(i)=ypoints2(i-1)+dist(i-1);
+        ypointsTemp=zeros(length(ypoints),1);
+        distance=flipud(distance); %UU Auch oben loeschen
+        ypointsTemp(1)=ypoints(j);
+        ypointsTemp(length(ypoints))=ypoints(j)+this.ylen/2; %Nicht sicher, sollte aber passen
+        for i=2 : length(ypoints)-1
+            ypointsTemp(i)=ypointsTemp(i-1)+distance(i-1);
         end
         
-        ypoints=[ypoints(1:j-1) ; ypoints2];
+        ypoints=[ypoints(1:j-1) ; ypointsTemp];
+        disp(['Maximal distance between yPoints is ',num2str(max(distance)) ,' mm']);
+        disp(['Tolerance of ' num2str(this.TOL) ' is reached and ' num2str(length(ypoints)) ' points are used']);
+     toc
      end
     end
     methods(Access=protected)
@@ -283,12 +328,9 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
         function geo = getGeometry(this)
             m  = models.muscle.Model(models.muscle.examples.Belly);
             mu = m.DefaultMu;
-            %Sets the tolerance property
             this.TOL=this.Options.TOL;
-            %Sets the maxYPoints property
-            this.maxYPoints=this.Options.maxYPoints;
-            %Sets the maxXLength property
-            this.maxXLength=this.Options.maxXLength;
+            this.maxN=this.Options.maxN;
+            this.maxYLength=this.Options.maxYLength;
             ref = [1.03, 1.4];
             %Man kann nun ueber 'Gauss Gamma' einen GaußKernel als
             %Stretchfunktion verwenden, wichtig ist das Leerzeichen
@@ -332,13 +374,13 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
                 (AnisoPassiveTendon(this.stretchfun(y))-AnisoPassiveMuscle(this.stretchfun(y)));
             
             [ypoints] = getDiscr(this,tmrFunc);
-            %Wieso funktioniert es nicht auch mit normalem Funktionsaufruf
-            %tmrFunc(ypoints)?!?!?!;
-            sol=zeros(length(ypoints),1);
-            for i=1:length(ypoints)
-                sol(i)=tmrFunc(ypoints(i));
-            end
-            plot(ypoints,sol);
+%             %Wieso funktioniert es nicht auch mit normalem Funktionsaufruf
+%             %tmrFunc(ypoints)?!?!?!;
+%             sol=zeros(length(ypoints),1);
+%             for i=1:length(ypoints)
+%                 sol(i)=tmrFunc(ypoints(i));
+%             end
+%             plot(ypoints,sol);
             geo = fem.geometry.Belly(ypoints,'Radius',this.radfun,'InnerRadius',0);
             
         end
@@ -375,30 +417,30 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
         
         function test_ShakerDefaultTMR
 
-            c = ShakerDefault('Stretch','Gauss 0.3');
-            m = c.createModel;
-            c.plotTMR;
-            m.plotGeometrySetup;
+%             c = ShakerDefault('Stretch','Gauss 0.3');
+%             m = c.createModel;
+%             c.plotTMR;
+%             m.plotGeometrySetup;
             
 %             c = ShakerDefault('Stretch','Gauss 0.2');
 %             m = c.createModel;
 %             c.plotTMR;
 %             
-%             c = ShakerDefault('Stretch','log');
-%             m = c.createModel;
-%             c.plotTMR;
-%             m.plotGeometrySetup;
-%             
-% 
-%             c = ShakerDefault('Stretch','exp');
-%             m = c.createModel;
-%             c.plotTMR;
-%             m.plotGeometrySetup;
-%     
-%             c = ShakerDefault('Stretch','linear');
-%             m = c.createModel;
-%             c.plotTMR;
-%             m.plotGeometrySetup;
+            c = ShakerDefault('Stretch','log');
+            m = c.createModel;
+            c.plotTMR;
+            m.plotGeometrySetup;
+            
+
+            c = ShakerDefault('Stretch','exp');
+            m = c.createModel;
+            c.plotTMR;
+            m.plotGeometrySetup;
+    
+            c = ShakerDefault('Stretch','linear');
+            m = c.createModel;
+            c.plotTMR;
+            m.plotGeometrySetup;
         end
         
         function test_ShakerDefault
