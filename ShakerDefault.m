@@ -141,128 +141,55 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
             tmr = (F./A(ycoord) - musclestress)./(tendonstress-musclestress);
         end
         
-%         function [ypoints] = getDiscr(this,TMRFunc) %TMRFunc muss hier eine Funktion sein!!
-% %             this.maxYPoints=0; %Nur zum Testen!
-% %             this.TOL=10^(-2); %Nur zum Testen
-%             deltaX=this.ylen/4; %Anfangsschrittweite           
-%             maxdy=this.TOL; %Default maximales dy als Differenzen der TMRFunktionswerte
-%             temp=1;
-%             
-%             
-%             if this.maxYPoints~=0 %Anzahl an Intervallpunkten vorgegeben
-%                 ypoints=zeros(this.maxYPoints,1); %Initialisieren
-%                 %%Schleife ueber die vorgegebene Anzahl an Punkten
-%                 %%abzueglich dem letzten Punkt, da dieser Fest ist
-%                 for i=1 : this.maxYPoints-1 %Erster und letzter Punkt fest
-%                     
-%                     %Solange man mit dem naechsten Punkt rechts rausfallen
-%                     %wuerde
-%                     while ypoints(i)+deltaX > this.ylen
-%                         deltaX=deltaX/2;
-%                     end
-%                     
-%                     %%Schleife bis Tolerierte Schrittweite erreicht wird
-%                     while 1 %Solange die tolerierte Schrittweite nicht erreicht wird repeat
-%                         if abs(TMRFunc(ypoints(i))-TMRFunc(ypoints(i)+deltaX))<this.TOL;%Schrittweite akzeptiert
-%                             ypoints(i+1)=ypoints(i)+deltaX;                        %Naechster Punkt ist der alte plus ermitteltes "notwendiges" deltaT 
-%                             break;
-%                         else %Schrittweite nicht akzeptiert -> Versuche es mit halber Schrittweite
-%                        deltaX=deltaX/2;
-%                         end                        
-%                     end
-%                     deltaX=this.ylen/4; %Schrittweite am Ende immer auf Anfangsschrittweite zuruecksetzen
-%                     %Letzte Abfrage ob insgesamt die Toleranz erreicht
-%                     %wurde
-%                     if abs(TMRFunc(this.ylen)-TMRFunc(ypoints(i)))<this.TOL; %Irgendwann zuvor Toleranz erreicht -> fertig
-%                        maxdy=abs(TMRFunc(this.ylen)-TMRFunc(ypoints(i)));
-%                        ypoints(i+1)=this.ylen;
-%                        ypoints=ypoints(1:i+1); %Damit nicht x mal der selbe Punkt verwendet wird
-%                        disp(['The Tolerance was already reached with the number of ' num2str(i+1) ' points and the max of dy is ' num2str(maxdy)]);
-%                        temp=0;
-%                        break
-%                     end                    
-%                 end
-%                 if temp && i==this.maxYPoints-1 && abs(TMRFunc(this.ylen)-TMRFunc(ypoints(this.maxYPoints-1)))< this.TOL; %Punkte reichen genau aus
-%                 maxdy=abs(TMRFunc(this.ylen)-TMRFunc(ypoints(this.maxYPoints-1)));
-%                 ypoints(this.maxYPoints)=this.ylen;
-%                 disp(['The Tolerance was reached with the amount of ' num2str(this.maxYPoints) ' points and the max of dy is ' num2str(maxdy)]);
-%                 
-%                 elseif i==this.maxYPoints-1 && abs(TMRFunc(this.ylen)-TMRFunc(ypoints(this.maxYPoints-1))) > this.TOL; %Nicht genug Punkte fuer gewuenschte Toleranz
-%                 maxdy=abs(TMRFunc(this.ylen)-TMRFunc(ypoints(this.maxYPoints-1)));
-%                 disp(['The Tolerance can not be reached with this amount of points. The max of dy would be ' num2str(maxdy)]); %Error oder disp?
-%                 ypoints(i+1)=this.ylen;
-%                 end
-%                 
-%             else %Nur Toleranz vorgegeben -> So viele Punkte wie "noetig".
-%                 ypoints=zeros(1000,1); %Preallocation for better performance
-%                 i=1;
-% %                 this.TOL = 10^(-2); %Nur zum Testen!
-%                 while 1 %Endless loop until tolerance globally reached
-%                     
-%                     %Solange man mit dem naechsten Punkt rechts rausfallen
-%                     %wuerde
-%                     while ypoints(i)+deltaX > this.ylen
-%                         deltaX=deltaX/2;
-%                     end 
-%                     if (abs(TMRFunc(ypoints(i))-TMRFunc(this.ylen))) < this.TOL %Toleranz insgesamt erreicht -> Break
-%                         ypoints(i+1)=this.ylen; %Letzter Punkt fix
-%                         ypoints=ypoints(1:i+1); %Nur die wirklich gebrauchten Punkte verwenden, restl 0en der Preallocation "wegschneiden"
-%                         disp(['Tolerance reached and used ' num2str(i) 'points, maxDy is ' num2str(maxdy)]);
-%                         break
-%                     else
-%                         while abs(TMRFunc(ypoints(i))-TMRFunc(ypoints(i)+deltaX)) > this.TOL %Verkleinere Schrittweite bis passt
-%                         deltaX=deltaX/2;
-%                         end
-%                         maxdy=abs(TMRFunc(ypoints(i))-TMRFunc(ypoints(i)+deltaX));
-%                         ypoints(i+1)=ypoints(i)+deltaX;
-%                         deltaX=this.ylen/4;
-%                     end
-%                     i=i+1;
-%                 end
-%             end
-%         end
+  
+%%  Discr due to function values, TMRFunc must be a function handle
+     function [ypoints] = getDiscr(this,TMRFunc)
+         %Kurze Fehlerbehandlung
+         if ~isa(TMRFunc,'function_handle')
+             error('The function argument must be of type function_handle');
+         end
+         if this.maxYLength*this.maxN*2 < this.ylen
+            error('Can not reach maxYLength with this amount of points');
+         end
 
-        
-    
-%%   
-%%Discr due to function values
-     function [ypoints] = getDiscr(this,TMRFunc) %TMRFunc muss hier eine Funktion sein!!
-         tic
-         %N=NoElements/4 (noch/2, da nur auf einer haelfte betrachtet
-         N=this.maxN; %Default noch mit entspr Abfragen oder im Konstruktor!!
+         
+         %% Vorinitialisierung
+         %N=NoElements/4 -> Layer, NoElements etc. werden erst im Anschluss
+         %festgelegt
+         N=this.maxN;
          N=N/2; %Nur bis zur haelfte
-         ypoints=zeros(N,1);
-         distance=zeros(N,1); %Speichere die Abstaende um spaeter an der Mitte zu spiegeln -> Evtl. eleganter
+         ypoints=zeros(N,1); 
+         distance=zeros(N,1); %Speichere die Abstaende um spaeter an der Mitte zu spiegeln
          j=2; %Erster Punkt ist die 0, fuer den Index in distance und ypoints
          yDefault=linspace(0,this.ylen/2,1000);
          TMRFuncComp=TMRFunc(yDefault); %Vergleichswerte fuer spaeter
          refValue=TMRFunc(0); %Referenzwert um die Toleranz zu checken
-%          posChange=0; %Verwendet fuer den refine part, falls die maximale Intervalllaenge zu gross ist und noch Punkte verfuegbar sind
+         posChange=0; %Wird in der Hauptlogik benoetigt um die variable Laenge der YPunkte zu beruecksichtigen
+         
+         %% Abschnitt um Genauigkeit in den Vergleichsfunktionswerten zu erreichen
          compare=abs(TMRFuncComp(2:length(TMRFuncComp))-TMRFuncComp(1:length(TMRFuncComp)-1))>this.TOL; %Sollte die Distanz zwischen zwei benachbarten Punkten die Toleranz ueberschreiten -> Refine, damit Rest funktioniert
          compare=find(compare); %Indices der Intervalle mit TOL Ueberschreitung
          while ~isempty(compare) %Solange es Intervalle gibt die nicht passen -> Selbe Logik wie unten
-             posChange=0;
              for k=1 : length(compare)
-                 yDefault=[yDefault(1:compare(k)+posChange) (yDefault(compare(k)+posChange)+yDefault(compare(k)+1+posChange))/2 yDefault(compare(k)+1+posChange:length(yDefault))];
+                 yDefault=[yDefault(1:compare(k)) (yDefault(compare(k))+yDefault(compare(k)+1))/2 yDefault(compare(k)+1:length(yDefault))];
              end
          TMRFuncComp=TMRFunc(yDefault);    
          compare=abs(TMRFuncComp(2:length(TMRFuncComp))-TMRFuncComp(1:length(TMRFuncComp)-1))>this.TOL; %Sollte die Distanz zwischen zwei benachbarten Punkten die Toleranz ueberschreiten -> Refine, damit Rest funktioniert
          compare=find(compare);
-         posChange=posChange+1;         
          end
-         posChange=0; %Um Unten weitermachen zu koennen
-         if this.maxYLength*N*2 < this.ylen
-            error('Can not reach maxYLength with this amount of points');
-         end
+         
+         
+         %% Hauptlogik
+         
 
-        for i=1 : length(yDefault); %Index merken wenn Tol ueberschritten
+        for i=1 : length(yDefault);
             
-            if(abs(TMRFuncComp(i)-refValue)>this.TOL && i<=length(yDefault)) %Erster Punkt TOL ueberschreitung -> Vorheriger in ypoints
-                refValue=TMRFuncComp(i-1); %Vergleichs y Wert
-                ypoints(j)=yDefault(i-1);
-                distance(j-1)=ypoints(j)-ypoints(j-1);
+            if(abs(TMRFuncComp(i)-refValue)>this.TOL && i<=length(yDefault)) %Erster Punkt der TOL ueberschreitet -> Vorheriger in ypoints, setzt voraus, dass vorherige Werte diese Toleranz unterschreiten 
+                refValue=TMRFuncComp(i-1); % Neuer Vergleichspunkt wird aktueller Funktionswert
+                ypoints(j)=yDefault(i-1); %Punkt bei dem TOL noch eingehalten wird, wird hinzugefuegt
+                distance(j-1)=ypoints(j)-ypoints(j-1); %Berechne den Abstand benachbarter ypoints Punkte
                 j=j+1;
-                if j>N %Bei jeder Veraenderung von ypoints
+                if j>N 
                 %%Alle Punkte verwendet, fertig -> Diverse Abfragen (maxX? gesamtTol?)
                    if(abs(refValue-TMRFunc(this.ylen/2))>this.TOL) %Toleranz insgesamt nicht erreicht 
                         error('Tolerance can not be reached with this amount of points') 
@@ -276,10 +203,8 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
                 end
                
             elseif i+1==length(yDefault) %Toleranz wird am Ende nicht mehr ueberschritten -> verfuegbarer Punkt wird Mittelpunkt
-                %%Noch Punkte uebrig -> refine, falls maxYLength nicht
-                %%eingehalten TOL erreicht
                 ypoints(j)=this.ylen/2;
-                ypoints=ypoints(1:j); %Vektor kuerzen um RAM Explosion zu verhindern :D
+                ypoints=ypoints(1:j);
                 distance(j-1)=ypoints(j)-ypoints(j-1); %Abstaende zwischen den Punkten speichern, fuer spaeter
                 distance=distance(1:j-1);
             end
@@ -287,40 +212,36 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
         %%Bis hier sind die Punkte gesetzt um die Toleranz einzuhalten!
         %%weiter sind hier noch Punkte uebrig um zu Verfeinern ->
         %%maxYLength einhalten
-        k=find(distance>this.maxYLength);  %Einmal vorher fuer 1. Abfrage, find liefert die Indices des Vektors die ungleich 0 sind in einem Vektor   
+        k=find(distance>this.maxYLength);   
         usablePoints=2*N-2*j+1; %Auf dem gesamten Intervall
-%Refine funktioniert jetzt fuer den Fall, dass genug Punkte zur Verfuegung
-%stehen
         while max(distance>this.maxYLength)==1 && length(k)*2 <= usablePoints %Laenge von k sind mind. Anzahl an neuen Punkten auf einer Haelfte
             
-            for i=1:length(k) %Iteration ueber die Intervalle in denen maxX ueberschritten zwischen die Punkte einene weiteren setzen.
+            for i=1:length(k) %Iteration ueber die Intervalle in denen maxX ueberschritten wird, zwischen die Punkte einene weiteren setzen.
                 ypoints=[ypoints(1:k(i)+posChange); (ypoints(k(i)+posChange)+ypoints(k(i)+1+posChange))/2; ypoints(k(i)+1+posChange:length(ypoints))]; %y veraendert sich nach einem Schleifendurchlauf -> PosChange+1
                 distance=[distance(1:k(i)+posChange-1);distance(k(i)+posChange)/2; distance(k(i)+posChange)/2 ; distance(k(i)+1+posChange:length(distance))]; %Abstand entsprechend angepasst -> halbiert dafuer 2mal und posChange+2
                 posChange=posChange+1;
                 j=j+1; %Fuer das Spiegeln an der Mitte
             end
-            usablePoints=usablePoints-2*length(k); %Punkte gesetzt -> nicht mehr verwendbar            
+            usablePoints=usablePoints-2*length(k); %length(k) Punkte auf einer Haelfte gesetzt            
             k=find(distance>this.maxYLength);      
             posChange=0;
         end
         if(max(k)>=1)
             error('Can not fall below maxYLength with this amount of points');
         end
-        %Ansonsten maxYLength passt -> ypoints fertig machen
-        %Definitiv verbessern! Aber funktioniert xD
-        %%"Spiegelt" an der Mitte
+
+        %Zum "Spiegeln" an der Mitte
         ypointsTemp=zeros(length(ypoints),1);
-        distance=flipud(distance); %UU Auch oben loeschen
+        distance=flipud(distance);
         ypointsTemp(1)=ypoints(j);
-        ypointsTemp(length(ypoints))=ypoints(j)+this.ylen/2; %Nicht sicher, sollte aber passen
+        ypointsTemp(length(ypoints))=ypoints(j)+this.ylen/2;
         for i=2 : length(ypoints)-1
-            ypointsTemp(i)=ypointsTemp(i-1)+distance(i-1);
+            ypointsTemp(i)=ypointsTemp(i-1)+distance(i-1); %Mit distance wird dafuer gesorgt, dass die Abstaende zwischen den Punkten rechts erhalten bleibt
         end
         
         ypoints=[ypoints(1:j-1) ; ypointsTemp];
         disp(['Maximal distance between yPoints is ',num2str(max(distance)) ,' mm']);
         disp(['Tolerance of ' num2str(this.TOL) ' is reached and ' num2str(length(ypoints)) ' points are used']);
-     toc
      end
     end
     methods(Access=protected)
@@ -364,7 +285,6 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
             AnisoPassiveMuscle = S_m.getFunction;
             S_t = general.functions.CubicToLinear(mu(7),mu(8));
             AnisoPassiveTendon = S_t.getFunction;
-            %Stretchfun und radfun fehlenn!
             F = AnisoPassiveTendon(this.stretchfun(0))*pi*this.radfun(0)^2;
             
             % Fläche als Funktion des Ortes
@@ -374,13 +294,11 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
                 (AnisoPassiveTendon(this.stretchfun(y))-AnisoPassiveMuscle(this.stretchfun(y)));
             
             [ypoints] = getDiscr(this,tmrFunc);
-%             %Wieso funktioniert es nicht auch mit normalem Funktionsaufruf
-%             %tmrFunc(ypoints)?!?!?!;
-%             sol=zeros(length(ypoints),1);
-%             for i=1:length(ypoints)
-%                 sol(i)=tmrFunc(ypoints(i));
-%             end
-%             plot(ypoints,sol);
+            sol=zeros(length(ypoints),1);
+            for i=1:length(ypoints)
+                sol(i)=tmrFunc(ypoints(i));
+            end
+            plot(ypoints,sol);
             geo = fem.geometry.Belly(ypoints,'Radius',this.radfun,'InnerRadius',0);
             
         end
@@ -446,6 +364,8 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
         function test_ShakerDefault
             m   = models.muscle.Model(ShakerDefault);
             m.simulateAndPlot;
+            
+%             m.simulateAndPlot(true,'Vid','C:\Uni_Simtech\test1');
 %             m = models.muscle.Model(ShakerDefault('Frequency',80));
 %             m.simulateAndPlot;
         end
