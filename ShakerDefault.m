@@ -31,7 +31,6 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
             this.addOption('maxN',100);
             
             
-            
             % Compute outer shape
             this.ylen = 100;
             k = kernels.GaussKernel(20);
@@ -39,7 +38,6 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
             
             % Also invokes geo setup
             this.init;
-            
             %Sets the frequency property
             this.frequency=this.Options.Frequency;
 %             %Sets the maxN property
@@ -294,11 +292,6 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
                 (AnisoPassiveTendon(this.stretchfun(y))-AnisoPassiveMuscle(this.stretchfun(y)));
             
             [ypoints] = getDiscr(this,tmrFunc);
-            sol=zeros(length(ypoints),1);
-            for i=1:length(ypoints)
-                sol(i)=tmrFunc(ypoints(i));
-            end
-            plot(ypoints,sol);
             geo = fem.geometry.Belly(ypoints,'Radius',this.radfun,'InnerRadius',0);
             
         end
@@ -308,7 +301,7 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
             geo = this.FEM.Geometry;
             % Fix ends in xz direction
             displ_dir([1 3],geo.Elements(1:4,geo.MasterFaces(3,:))) = true;
-            displ_dir([1 3],geo.Elements(13:16,geo.MasterFaces(4,:))) = true;
+            displ_dir([1 3],geo.Elements(length(geo.Elements)-3:length(geo.Elements),geo.MasterFaces(4,:))) = true;
         end
         
         function [velo_dir, velo_dir_val] = setVelocityDirichletBC(this, velo_dir, velo_dir_val)
@@ -316,7 +309,7 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
             geo = this.FEM.Geometry;
             % Fix ends in xz direction
             velo_dir(2,geo.Elements(1:4,geo.MasterFaces(3,:))) = true;
-            velo_dir(2,geo.Elements(13:16,geo.MasterFaces(4,:))) = true;
+            velo_dir(2,geo.Elements(length(geo.Elements)-3:length(geo.Elements),geo.MasterFaces(4,:))) = true;
 %             for k = [1 2 7 8 5 6 11 12]  
 %                 pos = geo.Elements(k,geo.MasterFaces(3,:));
 %                 velo_dir(1,pos) = true;
@@ -364,10 +357,6 @@ classdef ShakerDefault < models.muscle.AMuscleConfig
         function test_ShakerDefault
             m   = models.muscle.Model(ShakerDefault);
             m.simulateAndPlot;
-            
-%             m.simulateAndPlot(true,'Vid','C:\Uni_Simtech\test1');
-%             m = models.muscle.Model(ShakerDefault('Frequency',80));
-%             m.simulateAndPlot;
         end
     end
     
