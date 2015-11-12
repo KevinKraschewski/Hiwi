@@ -124,7 +124,7 @@ for j = 1 : 7
         [t,y] = m.simulate;
         SimulationTime(i) = toc(start); % Zeiten auf  ~4.4 GHz
         DF{i} = m.getResidualForces(t,y);
-        ElapsedTime{i} = t(length(t)); % Um vorzeitigen Abbruch zu erkennen
+        ElapsedTime{i} = t(size(t,2)); % Um vorzeitigen Abbruch zu erkennen
         
         %% Saving the Results into a cell
         SimResults{i,1}=t;
