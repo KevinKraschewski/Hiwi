@@ -65,38 +65,33 @@ for j = 1 : 7
             % Nur die Auswirkungen der TOL Veraenderung
             case 1
                 
-                
-                c.TOL = c.TOL-(i-1)*.25;
-                
+                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',c.TOL-(i-1)*.25);
                 
                 % Nur die Auswirkungen von maxYLength
             case 2
-                
-                
-                c.maxYLength = c.maxYLength - (i-1)*2.5;
-                
+                              
+                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.25,'maxYLength',c.maxYLength - (i-1)*2.5);
                 % Tol und maxYLength gleichzeitig
             case 3
                 
-                c.maxYLength = c.maxYLength - (i-1)*2.5;
-                c.TOL = c.TOL-(i-1)*.25;
+                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',c.TOL-(i-1)*.25,'maxYLength',c.maxYLength - (i-1)*2.5);
+                
                 
                 % Tol und maxYLength gleichzeitig und MW der TMR's
             case 5
                 
-                c.maxYLength = c.maxYLength - (i-1)*2.5;
-                c.TOL = c.TOL-(i-1)*.25;
+                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',c.TOL-(i-1)*.25,'maxYLength',c.maxYLength - (i-1)*2.5);
+                
                 
                 % Beides mit Stueckweise Konstanten Muskel/Tendon
             case 6
                 
-                c.maxYLength = c.maxYLength - (i-1)*2.5;
-                c.TOL = c.TOL-(i-1)*.25;
+                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',c.TOL-(i-1)*.25,'constFromTo',[10,40],'maxYLength',c.maxYLength - (i-1)*2.5);
                 
                 % TOL mit Stueckweise Konstant und MW
             case 7
+                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',c.TOL-(i-1)*.25,'constFromTo',[10,40],'maxYLength',17.5);
                 
-                c.TOL = c.TOL-(i-1)*.25;
         end
         
         %% Creating the Model
@@ -134,9 +129,9 @@ for j = 1 : 7
         end
         
         
-        %% Speichert die meisten Variablen in eine Datei "Results".
-        save(['Results' num2str(j) '.mat'],'SimResults','SimulationTime','ElapsedTime','NoOfSteps','DF','m','c');
+        
     end
     
-    
+    %% Speichert die meisten Variablen in eine Datei "Results".
+    save(['Results' num2str(j) '.mat'],'SimResults','SimulationTime','ElapsedTime','NoOfSteps','DF','ModelsAndConfig');
 end
