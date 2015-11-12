@@ -4,7 +4,7 @@
 % Datenstruktur gespeichert!
 
 
-NoOfSteps = 8; % Wie viele Steps gemacht werden
+NoOfSteps = 6; % Wie viele Steps gemacht werden
 TolStep = .025; % Veraenderung der Toleranz mit jedem Schritt
 
 ModelsAndConfig = cell(NoOfSteps,2); % Spalte 1 -> Configs, Spalte 2 -> Models
@@ -30,29 +30,36 @@ for j = 1 : 7
         % Nur die Toleranz veraendert sich
         case 1
             c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.2);
-            
+            tolerance = c.TOL;
+            length = c.maxYLength;
             % maxYLength veraendert sich
         case 2
             c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.25,'maxYLength',17.5);
-            
+            tolerance = c.TOL;
+            length = c.maxYLength;
             % Toleranz und maxYLength veraendern sich
         case 3
             c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.2);
-            
+            tolerance = c.TOL;
+            length = c.maxYLength;
             % Mittelwerte von MuscleTendonRatioGP
         case 4
             c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.2,'MaxYLength',10);
-            
+            tolerance = c.TOL;
+            length = c.maxYLength;
             % Mittelwerte, TOL und maxYLength
         case 5
             c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.2);
-            
+            tolerance = c.TOL;
+            length = c.maxYLength;
         case 6
             
             c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.2,'constFromTo',[10,40]);
+            length = c.maxYLength;
             
         case 7
             c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.2,'constFromTo',[10,40],'maxYLength',17.5);
+            length = c.maxYLength;
     end
     
     %% Schleife um NoOfSteps Simulationen durchzufuehren
@@ -65,32 +72,32 @@ for j = 1 : 7
             % Nur die Auswirkungen der TOL Veraenderung
             case 1
                 
-                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',c.TOL-(i-1)*.25);
+                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',tolerance-(i-1)*.025);
                 
                 % Nur die Auswirkungen von maxYLength
             case 2
                               
-                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.25,'maxYLength',c.maxYLength - (i-1)*2.5);
+                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.25,'maxYLength',length - (i-1)*2.5);
                 % Tol und maxYLength gleichzeitig
             case 3
                 
-                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',c.TOL-(i-1)*.25,'maxYLength',c.maxYLength - (i-1)*2.5);
+                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',tolerance-(i-1)*.025,'maxYLength',length - (i-1)*2.5);
                 
                 
                 % Tol und maxYLength gleichzeitig und MW der TMR's
             case 5
                 
-                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',c.TOL-(i-1)*.25,'maxYLength',c.maxYLength - (i-1)*2.5);
+                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',tolerance-(i-1)*.025,'maxYLength',length - (i-1)*2.5);
                 
                 
                 % Beides mit Stueckweise Konstanten Muskel/Tendon
             case 6
                 
-                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',c.TOL-(i-1)*.25,'constFromTo',[10,40],'maxYLength',c.maxYLength - (i-1)*2.5);
+                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',tolerance-(i-1)*.025,'constFromTo',[10,40],'maxYLength',length - (i-1)*2.5);
                 
                 % TOL mit Stueckweise Konstant und MW
             case 7
-                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',c.TOL-(i-1)*.25,'constFromTo',[10,40],'maxYLength',17.5);
+                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',tolerance-(i-1)*.025,'constFromTo',[10,40],'maxYLength',17.5);
                 
         end
         
@@ -131,7 +138,7 @@ for j = 1 : 7
         
         
     end
-    
+
     %% Speichert die meisten Variablen in eine Datei "Results".
     save(['Results' num2str(j) '.mat'],'SimResults','SimulationTime','ElapsedTime','NoOfSteps','DF','ModelsAndConfig');
 end
