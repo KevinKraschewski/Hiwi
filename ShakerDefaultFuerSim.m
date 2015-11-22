@@ -21,6 +21,10 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
         % the second argument sets the start the const muscle part.
         % Parameters must be between 0 and ylen
         constFromTo;
+        
+        % Neue Attribute, die nur fuer die TMR Berechnung verwendet werden
+        stretchForTMR
+        radForTMR
     end
     
     methods
@@ -48,6 +52,7 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             % getTendonMuscleRatio(this,Points) Methode ebenfalls
             % anzupassen!
             this.radfun = @(x)10*k.evaluate(this.ylen/2,x)+2;
+            this.radForTMR = @(x)10*k.evaluate(this.ylen/2,x)+2;
             
             % Also invokes geo setup
             this.init;
@@ -99,18 +104,18 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             % Berechne zunaechst die Kraft die an der Sehne aufgebracht
             % werden muss, um die bei x=0 vorgegebene Sehnenverzerrung zu erreichen
             
-            F = f.AnisoPassiveTendon(this.stretchfun(0))*pi*this.radfun(0)^2;
+            F = f.AnisoPassiveTendon(this.stretchForTMR(0))*pi*this.radForTMR(0)^2;
             
             % Flaeche als Funktion des Ortes
-            A = @(y)this.radfun(y).^2*pi;
+            A = @(y)this.radForTMR(y).^2*pi;
             
             % Extrahiere y-Koordinaten aus den gegebenen Punkten
             ycoord = points(2,:);
             
             % Berechne Stress der einzelkomponenten bei gegebenem Stretch
             % an den gegebenen y-Positionen
-            musclestress = f.AnisoPassiveMuscle(this.stretchfun(ycoord));
-            tendonstress = f.AnisoPassiveTendon(this.stretchfun(ycoord));
+            musclestress = f.AnisoPassiveMuscle(this.stretchForTMR(ycoord));
+            tendonstress = f.AnisoPassiveTendon(this.stretchForTMR(ycoord));
             
             % Umstellen von
             % F = \sigma*A = (1-r)\sigma_m + r\sigma_t
@@ -218,54 +223,111 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             end
             
             ypoints = [ypoints(1:j-1) ; ypointsTemp];
+            
+            %% Distanz wird maximal kleiner, falls Stueckweise Konstant,
+            %%setze an die entsprechenden Stellen noch ein Element:
+            % Scheint ein Problem mit der plotGeometrySetup hervorzurufen
+            
+            
+            % sollte an den Stellen nicht zufaellig ein Punkt gesetzt
+            % worden sein, setze einen.
+            
+            if ~any(ypoints == this.constFromTo(1))
+                
+                [~,index] = min(abs(ypoints-this.constFromTo(1)));
+                ypoints = [ypoints(1:index); this.constFromTo(1); ypoints(index+1:end)];
+                
+            end
+            
+            
+            if ~any(ypoints == this.constFromTo(2))
+                
+                [~,index] = min(abs(ypoints-this.constFromTo(2)));
+                ypoints = [ypoints(1:index); this.constFromTo(2); ypoints(index+1:end)];
+                
+            end
+            
+            
+            if ~any(ypoints == this.constFromTo(2)+2*abs(this.ylen/2 - this.constFromTo(2)))
+                
+                [~,index] = min(abs(ypoints - (this.constFromTo(2) + 2*abs(this.ylen/2 - this.constFromTo(2)))));
+                ypoints = [ypoints(1:index); this.constFromTo(2)+2*abs(this.ylen/2 - this.constFromTo(2))...
+                    ;ypoints(index+1:end)];
+                
+            end
+            
+            if ~any(ypoints == this.ylen-this.constFromTo(1))
+                
+                [~,index] = min(abs(ypoints - (this.ylen - this.constFromTo(1))));
+                ypoints = [ypoints(1:index); this.ylen - this.constFromTo(1); ypoints(index+1:end)];
+                
+            end
+            % Da ich nur "links" einfuege, wird am Ende der Vektor sortiert
+            ypoints = sort(ypoints);
+            
+            %% Kleine Ausgaben fuer den Benutzer
             disp(['Maximal distance between yPoints is ',num2str(max(distance)) ,' mm']);
-            disp(['Tolerance of ' num2str(this.TOL) ' is reached and ' num2str(length(ypoints)) ' points are used']);
+            % Da zwischen den Punkten immer noch ein Punkt gesetzt wird
+            disp(['Tolerance of ' num2str(this.TOL) ' is reached and ' num2str(length(ypoints)*2+1) ' points are used']);
         end
+        
+        
         
         %% Plots the Position of chosen y-points over the time
         % here we've chosen the first, the mid, and the last point
+        % Aktuell ohne Ausgabe, nur Plots
         function [PeakTimesFirst,PeakTimesMid,PeakTimesLast] = getOutputofInterest(this,t,y)
             %% Bestimme die gewuenschten Punkte aus den Daten (25 Punkte pro Element)
-            lastPoints = find(y==this.ylen);
-            lastPoints = lastPoints(1:25);
-            midPoints = find(y==this.ylen/2);
-            midPoints = midPoints(1:25);
+            
+            geo = this.Geometry;
+            midIndex = (geo.NumElements/2)+1;
+            midPoint = 3*geo.Elements(midIndex);
+            
+            firstPoint = 3;
+            
+            [last1,last2] = size(geo.Elements);
+            lastPoint = 3*geo.Elements(last1,last2-3);
+            
+            
             
             %% Plots dazu
             figure
             subplot(3,1,1)
-            plot(t,y(3+(1:3),:),'r');
-            title('First Points')
+            plot(t,y(firstPoint,:),'r');
+            title('First Point')
             
             subplot(3,1,3)
-            plot(t,y(lastPoints,:),'b');
+            plot(t,y(lastPoint,:),'b');
             xlabel(['t' '[s]']);
-            title('Last Points');
+            title('Last Point');
             
             subplot(3,1,2)
-            plot(t,y(midPoints,:),'g');
-            title('Mid Points')
+            plot(t,y(midPoint,:),'g');
+            title('Mid Point')
             ylabel(['y-Position ' '[mm]']);
             hold off
             
             figure
             title('All in one');
             hold on
-            plot(t,y(midPoints,:)-this.ylen/2,'g');
-            plot(t,y(lastPoints,:)-this.ylen,'b');
+            plot(t,y(midPoint,:)-this.ylen/2,'g');
+            plot(t,y(lastPoint,:)-this.ylen,'b');
             plot(t,y(3+(1:3),:),'r');
+            legend('Mid','Last','First','Location','Northeast')
+            xlabel('time [s]');
+            ylabel('Position on y-Axe');
             hold off
             
-            %% Get the Peaks
-            k = Processor;
-            k.minV = 1/(this.Amp);
-            % Die Zeiten noch gedacht durch mit Zeitschrittweite multiplizieren teilen
-            PeakTimesFirst = k.getPeakLocations(t,y(3+(1:3),:));
-            PeakTimesLast = k.getPeakLocations(t,y(lastPoints,:)-this.ylen);
-            
-            % Fuer die Mitte anderes minV
-            k.minV = 1/(3*this.Amp);
-            PeakTimesMid = k.getPeakLocations(t,y(midPoints,:)-this.ylen/2);
+            %             %% Get the Peaks
+            %             k = Processor;
+            %             k.minV = 1/(this.Amp);
+            %             % Die Zeiten noch gedacht durch mit Zeitschrittweite multiplizieren teilen
+            %             PeakTimesFirst = k.getPeakLocations(t,y(firstPoint,:));
+            %             PeakTimesLast = k.getPeakLocations(t,y(lastPoint,:)-this.ylen);
+            %
+            %             % Fuer die Mitte anderes minV
+            %             k.minV = 1/(3*this.Amp);
+            %             PeakTimesMid = k.getPeakLocations(t,y(midPoint,:)-this.ylen/2);
             
         end
         
@@ -315,10 +377,12 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             % length (mirror at half)
             this.stretchfun = @(y)(y<=len/2) .* (stretchfun_0_1(2*y/len)) ...
                 + (y>len/2) .* (stretchfun_0_1(1-2*(y-len/2)/len));
+            this.stretchForTMR = @(y)(y<=len/2) .* (stretchfun_0_1(2*y/len)) ...
+                + (y>len/2) .* (stretchfun_0_1(1-2*(y-len/2)/len));
             
             % Sollten Konstante Abschnitte erwuenscht sein werden hier die
-            % Radfun und die Stretchfun geaendert um im TMR auch Konstante
-            % Abschnitte zu haben
+            % Anpassungen gemacht, um im TMR auch Konstante
+            % Abschnitte zu haben.
             if (norm(zeros(1,2) - this.constFromTo) ~= 0)
                 
                 k = kernels.GaussKernel(20);
@@ -326,7 +390,7 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
                 helpRadFunLeft = @(x) (x <= this.ylen/2).*helpRadFun(x);
                 helpRadFunRight = @(x) (x > this.ylen/2).*helpRadFun(x);
                 
-                this.radfun = @(x)  (x < this.constFromTo(1)).*helpRadFun(0)...
+                this.radForTMR = @(x)  (x < this.constFromTo(1)).*helpRadFun(0)...
                     ... Linke Seite
                     +helpRadFunLeft((this.ylen/2 - 0)/(this.constFromTo(2) - this.constFromTo(1))*x +...
                     (0 - (this.ylen/2 - 0)/(this.constFromTo(2) - this.constFromTo(1)) * this.constFromTo(1)))...
@@ -346,12 +410,10 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
                     +(x > this.ylen - this.constFromTo(1)).*helpRadFun(0);
                 
                 % Erleichtert die Transformationen fuer Konstante Abschnitte
-                % Auf Pointer aufpassen -> nicht die haelfte von
-                % this.stretchfun nehmen!!!
                 StretchLeft = @(y) (y<=len/2) .* (stretchfun_0_1(2*y/len));
                 StretchRight = @(y) (y>len/2) .* (stretchfun_0_1(1-2*(y-len/2)/len));
                 
-                this.stretchfun = @(x) (x < this.constFromTo(1)).*ref(1)...
+                this.stretchForTMR = @(x) (x < this.constFromTo(1)).*ref(1)...
                     ... Linke Seite
                     +StretchLeft((this.ylen/2 - 0)/(this.constFromTo(2) - this.constFromTo(1))*x +...
                     (0 - (this.ylen/2 - 0)/(this.constFromTo(2) - this.constFromTo(1)) * this.constFromTo(1)))...
@@ -369,8 +431,8 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
                     (this.constFromTo(2) + 2*abs(this.ylen/2 - this.constFromTo(2))))...
                     .*(x <= this.ylen - this.constFromTo(1))...
                     +(x > this.ylen - this.constFromTo(1)).*ref(1);
+                
             end
-            
             
             
             %% TMRFunction berechnen
@@ -378,43 +440,14 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             AnisoPassiveMuscle = S_m.getFunction;
             S_t = general.functions.CubicToLinear(mu(7),mu(8));
             AnisoPassiveTendon = S_t.getFunction;
-            F = AnisoPassiveTendon(this.stretchfun(0))*pi*this.radfun(0)^2;
+            F = AnisoPassiveTendon(this.stretchForTMR(0))*pi*this.radForTMR(0)^2;
             
             % Flaeche als Funktion des Ortes
-            A = @(y)this.radfun(y).^2*pi;
+            A = @(y)this.radForTMR(y).^2*pi;
             
-            tmrFunc=@(y) (F./A(y)-AnisoPassiveMuscle(this.stretchfun(y)))./...
-                (AnisoPassiveTendon(this.stretchfun(y))-AnisoPassiveMuscle(this.stretchfun(y)));
+            tmrFunc=@(y) (F./A(y)-AnisoPassiveMuscle(this.stretchForTMR(y)))./...
+                (AnisoPassiveTendon(this.stretchForTMR(y))-AnisoPassiveMuscle(this.stretchForTMR(y)));
             
-            
-            %% Tmr Funktion stueckweise konstant -> Stellen nur Tendon/Muscle
-            % Funktion setzt sich die Stueckweise Konstante Funktion aus
-            % der bereits berechneten zusammen.
-            %             if (norm(zeros(1,2) - this.constFromTo) ~= 0)
-            %
-            %                 % Erleichtert die Transformationen fuer Konstante Abschnitte
-            %                 tmrFuncLeft = @(y) tmrFunc(y).*(y<=this.ylen/2);
-            %                 tmrFuncRight = @(y) tmrFunc(y).*(y>this.ylen/2);
-            %
-            %                 tmrFunc = @(x) (x < this.constFromTo(1)).*tmrFunc(0)...
-            %                     ... Linke Seite
-            %                     +tmrFuncLeft((this.ylen/2 - 0)/(this.constFromTo(2) - this.constFromTo(1))*x +...
-            %                     (0 - (this.ylen/2 - 0)/(this.constFromTo(2) - this.constFromTo(1)) * this.constFromTo(1)))...
-            %                     .* ((x >= this.constFromTo(1)) .* (x < this.constFromTo(2)))...
-            %                     + tmrFunc(this.ylen/2) .* (x >= this.constFromTo(2)).*...
-            %                     (x < (this.constFromTo(2)+2 * abs(this.ylen/2 - this.constFromTo(2))))...
-            %                     ...  Rechte Seite
-            %                     +(x >= (this.constFromTo(2) + 2*abs(this.ylen/2 - this.constFromTo(2)))) .*...
-            %                     tmrFuncRight((this.ylen-this.ylen/2) /...
-            %                     (this.ylen - this.constFromTo(1) - (this.constFromTo(2) +...
-            %                     2 * abs(this.ylen/2 - this.constFromTo(2)))).*x +...
-            %                     this.ylen/2 - (this.ylen-this.ylen/2) /...
-            %                     (this.ylen - this.constFromTo(1) - (this.constFromTo(2) +...
-            %                     2 * abs(this.ylen/2 - this.constFromTo(2)))) * ...
-            %                     (this.constFromTo(2) + 2*abs(this.ylen/2 - this.constFromTo(2))))...
-            %                     .*(x <= this.ylen - this.constFromTo(1))...
-            %                     +(x > this.ylen - this.constFromTo(1)).*tmrFunc(this.ylen);
-            %             end
         end
         
     end
