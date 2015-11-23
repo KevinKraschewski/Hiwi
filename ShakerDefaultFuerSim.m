@@ -17,8 +17,8 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
         maxYLength;
         
         % New Property to define "other" stretchfunctions
-        % is a vector where the first argument sets the end the const tendon part and
-        % the second argument sets the start the const muscle part.
+        % is a vector where the first argument sets the end of the constant tendon part and
+        % the second argument sets the start of the const muscle part.
         % Parameters must be between 0 and ylen
         constFromTo;
         
@@ -230,8 +230,7 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             
             
             % sollte an den Stellen nicht zufaellig ein Punkt gesetzt
-            % worden sein, setze einen.
-            
+            % worden sein, setze einen.            
             if ~any(ypoints == this.constFromTo(1))
                 
                 [~,index] = min(abs(ypoints-this.constFromTo(1)));
@@ -247,11 +246,11 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
                 
             end
             
-            
-            if ~any(ypoints == this.constFromTo(2)+2*abs(this.ylen/2 - this.constFromTo(2)))
+            % Um die Symmetrie zu erhalten. Es wird aktuell noch ein 
+            if ~any(ypoints == this.constFromTo(2)+2*abs(this.ylen/2 - this.constFromTo(2))-.1)
                 
-                [~,index] = min(abs(ypoints - (this.constFromTo(2) + 2*abs(this.ylen/2 - this.constFromTo(2)))));
-                ypoints = [ypoints(1:index); this.constFromTo(2)+2*abs(this.ylen/2 - this.constFromTo(2))...
+                [~,index] = min(abs(ypoints - (this.constFromTo(2) + 2*abs(this.ylen/2 - this.constFromTo(2)))-.1));
+                ypoints = [ypoints(1:index); this.constFromTo(2)+2*abs(this.ylen/2 - this.constFromTo(2))-.1...
                     ;ypoints(index+1:end)];
                 
             end
@@ -275,9 +274,11 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
         
         %% Plots the Position of chosen y-points over the time
         % here we've chosen the first, the mid, and the last point
-        % Aktuell ohne Ausgabe, nur Plots
-        function [PeakTimesFirst,PeakTimesMid,PeakTimesLast] = getOutputofInterest(this,t,y)
-            %% Bestimme die gewuenschten Punkte aus den Daten (25 Punkte pro Element)
+        % Gibt ausserdem die maximale Differenz zwischen der Y-Position der
+        % Mitte und den Raendern zurueck, Kurven natuerlich uebereinander.
+        
+        function [MaxDifference] = getOutputofInterest(this,t,y)
+            %% Bestimme die gewuenschten Punkte aus den Daten
             
             geo = this.Geometry;
             midIndex = (geo.NumElements/2)+1;
@@ -307,16 +308,26 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             ylabel(['y-Position ' '[mm]']);
             hold off
             
+            % Die Kurven uebereinander gelegt
             figure
-            title('All in one');
+            title('Alle Kurven uebereinandergelegt');
             hold on
             plot(t,y(midPoint,:)-this.ylen/2,'g');
             plot(t,y(lastPoint,:)-this.ylen,'b');
             plot(t,y(3+(1:3),:),'r');
             legend('Mid','Last','First','Location','Northeast')
             xlabel('time [s]');
-            ylabel('Position on y-Axe');
+            ylabel('Position on y-axe');
             hold off
+            
+            
+            figure
+            plot(t,y(midPoint,:)-this.ylen/2-y(3,:));
+            title('Differenz der Bewegung der Raender im Vergleich zur Mitte')
+            xlabel('time [s]')
+            ylabel('Position on y-axe')
+            
+            MaxDifference = max(y(midPoint,:)-this.ylen/2-y(3,:));
             
             %             %% Get the Peaks
             %             k = Processor;
@@ -383,6 +394,11 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             % Sollten Konstante Abschnitte erwuenscht sein werden hier die
             % Anpassungen gemacht, um im TMR auch Konstante
             % Abschnitte zu haben.
+            % Die Funktionen werden hierfuer auf das Intervall
+            % [constFromTo(1),constFromTo(2)] transformiert. Von
+            % [0,constFromTo(1)] haben wir nur Sehne, auf [constFromTo(2),ylen/2] nur
+            % Muskel. Aufgrund der Symmetrie gilt entsprechendes ab ylen/2.
+            
             if (norm(zeros(1,2) - this.constFromTo) ~= 0)
                 
                 k = kernels.GaussKernel(20);
