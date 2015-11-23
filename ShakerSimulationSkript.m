@@ -4,7 +4,7 @@
 % Datenstruktur gespeichert!
 
 
-NoOfSteps = 6; % Wie viele Steps gemacht werden
+NoOfSteps = 1; % Wie viele Steps gemacht werden
 TolStep = .025; % Veraenderung der Toleranz mit jedem Schritt
 
 ModelsAndConfig = cell(NoOfSteps,2); % Spalte 1 -> Configs, Spalte 2 -> Models
@@ -24,98 +24,71 @@ ElapsedTime = cell(NoOfSteps,1);
 % Speichert die untersch. Kraefte auch in einer Cell
 DF = cell(NoOfSteps,1);
 
+% Anfangs relative Toleranz fuer den ODE Solver
+RelTol = .1;
+
 %% Schleife um diverse Optionen zu durchlaufen
-for j = 1 : 7
-    switch j
-        % Nur die Toleranz veraendert sich
-        case 1
-            c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.2);
-            tolerance = c.TOL;
-            length = c.maxYLength;
-            % maxYLength veraendert sich
-        case 2
-            c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.25,'maxYLength',17.5);
-            tolerance = c.TOL;
-            length = c.maxYLength;
-            % Toleranz und maxYLength veraendern sich
-        case 3
-            c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.2);
-            tolerance = c.TOL;
-            length = c.maxYLength;
-            % Mittelwerte von MuscleTendonRatioGP
-        case 4
-            c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.2,'MaxYLength',10);
-            tolerance = c.TOL;
-            length = c.maxYLength;
-            % Mittelwerte, TOL und maxYLength
-        case 5
-            c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.2);
-            tolerance = c.TOL;
-            length = c.maxYLength;
-        case 6
-            
-            c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.2,'constFromTo',[10,40]);
-            length = c.maxYLength;
-            
-        case 7
-            c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.2,'constFromTo',[10,40],'maxYLength',17.5);
-            length = c.maxYLength;
-    end
+for j = 1 : 3
+    c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.25,...
+        'constFromTo',[10,40],'maxYLength',20);
+    tolerance = .25;
+    laenge = 20;
+    
     
     %% Schleife um NoOfSteps Simulationen durchzufuehren
     for i = 1 : NoOfSteps
-        %% Manipulation der Config abhaengig vom Case j
         
         
-        
-        switch j
-            % Nur die Auswirkungen der TOL Veraenderung
-            case 1
-                
-                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',tolerance-(i-1)*.025);
-                
-                % Nur die Auswirkungen von maxYLength
-            case 2
-                              
-                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.25,'maxYLength',length - (i-1)*2.5);
-                % Tol und maxYLength gleichzeitig
-            case 3
-                
-                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',tolerance-(i-1)*.025,'maxYLength',length - (i-1)*2.5);
-                
-                
-                % Tol und maxYLength gleichzeitig und MW der TMR's
-            case 5
-                
-                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',tolerance-(i-1)*.025,'maxYLength',length - (i-1)*2.5);
-                
-                
-                % Beides mit Stueckweise Konstanten Muskel/Tendon
-            case 6
-                
-                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',tolerance-(i-1)*.025,'constFromTo',[10,40],'maxYLength',length - (i-1)*2.5);
-                
-                % TOL mit Stueckweise Konstant und MW
-            case 7
-                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',tolerance-(i-1)*.025,'constFromTo',[10,40],'maxYLength',17.5);
-                
+        % Veraendert die Feinheit der Zerlegung und die relative Toleranz
+        % des ODE Solvers in jedem Schritt
+        if j == 1
+            
+            c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',tolerance-(i-1)*TolStep,...
+                'constFromTo',[10,40],'maxYLength',laenge - (i-1)*2.5);
+            
+            m = c.createModel;
+            m.T = 150;
+            RelTol = RelTol/10;
+            m.ODESolver.RelTol = RelTol;
         end
         
-        %% Creating the Model
-        m = c.createModel;
-        m.T = 150;
-        
-        
-        % Ersetzt die TMR's durch die Mittelwerte der bisherigen
-        if j == 4 || j == 5 || j == 7
-            % Wichtig, das Attribut wurde in System auf public gesetzt!!
-            m.System.MuscleTendonRatioGP(1:size(m.System.MuscleTendonRatioGP,1),:)...
-                = repmat(mean(m.System.MuscleTendonRatioGP),...
-                size(m.System.MuscleTendonRatioGP,1),1);
+        % Bessere Gauss Integration
+        if j == 2
+            
+            c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',tolerance-(i-1)*TolStep,...
+                'constFromTo',[10,40],'maxYLength',laenge - (i-1)*2.5);
+            m = c.createModel;
+            m.T = 150;
+            m.setGaussIntegrationRule(5);
             
         end
         
-        % Speichert Model und Configuration in eine Cell
+        % Auswirkung von beidem
+        if j == 3
+            
+            c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',tolerance-(i-1)*TolStep,...
+                'constFromTo',[10,40],'maxYLength',laenge - (i-1)*2.5);
+            m = c.createModel;
+            m.T = 150;
+            m.setGaussIntegrationRule(5);  
+            RelTol = RelTol/10;
+            m.ODESolver.RelTol = RelTol;            
+            
+        end
+        % Ersetzt die TMR's durch die Mittelwerte der bisherigen
+        % Wichtig, das Attribut wurde in System auf public gesetzt!!
+        m.System.MuscleTendonRatioGP(1:size(m.System.MuscleTendonRatioGP,1),:)...
+            = repmat(mean(m.System.MuscleTendonRatioGP),...
+            size(m.System.MuscleTendonRatioGP,1),1);
+        
+        % Kleine Anpassung um an Stellen wirklich nur Tendon/Muscle zu
+        % haben
+        m.System.MuscleTendonRatioGP = (m.System.MuscleTendonRatioGP - ...
+            min(m.System.MuscleTendonRatioGP(:)))/(max(m.System.MuscleTendonRatioGP(:)...
+            -min(m.System.MuscleTendonRatioGP(:))))./(10^(8));
+        
+        
+        % Speichert Model und Configuration in einer Cell
         ModelsAndConfig{i,1} = c;
         ModelsAndConfig{i,2} = m;
         
@@ -130,15 +103,8 @@ for j = 1 : 7
         SimResults{i,1}=t;
         SimResults{i,2}=y;
         
-        % Nur ein Durchgang, falls nur die MW betrachtet werden sollen
-        if j == 4
-            break
-        end
-        
-        
-        
     end
-
+    
     %% Speichert die meisten Variablen in eine Datei "Results".
-    save(['Results' num2str(j) '.mat'],'SimResults','SimulationTime','ElapsedTime','NoOfSteps','DF','ModelsAndConfig');
+    save(['SmallTMR' num2str(j) '.mat'],'SimResults','SimulationTime','ElapsedTime','NoOfSteps','DF','ModelsAndConfig');
 end
