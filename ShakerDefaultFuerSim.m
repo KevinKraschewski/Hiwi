@@ -524,5 +524,30 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             m.plotGeometrySetup;
         end
         
+        % Erzeugt die Config und das Model fuer das 10^-6_50Hz Video
+        function [c,m] = createTestingConfig
+            
+            c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.25,...
+                'constFromTo',[10,40],'maxYLength',20);
+            
+            m = c.createModel;
+            m.T = 150;
+            RelTol = .01;
+            m.ODESolver.RelTol = RelTol;
+            
+        % Ersetzt die TMR's durch die Mittelwerte der bisherigen
+        % Wichtig, das Attribut wurde in System auf public gesetzt!!
+        m.System.MuscleTendonRatioGP(1:size(m.System.MuscleTendonRatioGP,1),:)...
+            = repmat(mean(m.System.MuscleTendonRatioGP),...
+            size(m.System.MuscleTendonRatioGP,1),1);
+        
+        % Kleine Anpassung um an Stellen wirklich nur Tendon/Muscle zu
+        % haben
+        m.System.MuscleTendonRatioGP = (m.System.MuscleTendonRatioGP - ...
+            min(m.System.MuscleTendonRatioGP(:)))/(max(m.System.MuscleTendonRatioGP(:)...
+            -min(m.System.MuscleTendonRatioGP(:))))./(10^(6));            
+            
+        end
+        
     end
 end
