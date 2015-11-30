@@ -3,12 +3,6 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
     properties
         Fr = 50; % Shaker frequency [Hz]
         Amp = 2; % Shaker amplitude [mm]
-    end
-    %GEAENDERT! Properties von Private auf Public (Fuer das Skript zum Testen)
-    properties
-        ylen;
-        radfun;
-        stretchfun;
         % New Parameters for frequency, a tolerance for the maxDy of
         % TMRFunction (for the discretisation part) and the maximal amount
         % of points on y-axis(not the total amount of nodes) that are usable
@@ -21,9 +15,14 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
         % the second argument sets the start of the const muscle part.
         % Parameters must be between 0 and ylen
         constFromTo;
+    end
+    %GEAENDERT! Properties von Private auf Public (Fuer das Skript zum Testen)
+    properties(SetAccess=private)
+        ylen;
+        radfun;
+        stretchfun;
         
-        % Neue Attribute, die nur fuer die TMR Berechnung verwendet werden
-        stretchForTMR
+        % Neues Attribut, das nur fuer die TMR Berechnung verwendet wird
         radForTMR
     end
     
@@ -39,6 +38,12 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             this.addOption('maxYLength',20);
             % Default N points on yAxis (not the total amount of nodes!)
             this.addOption('maxN',500);
+            
+            this.addOption('Frequency',50);
+            
+            this.addOption('Amplitude',2);
+            
+            
             
             % Default constFromTo is zero
             this.addOption('constFromTo',[0,0]);
@@ -104,7 +109,7 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             % Berechne zunaechst die Kraft die an der Sehne aufgebracht
             % werden muss, um die bei x=0 vorgegebene Sehnenverzerrung zu erreichen
             
-            F = f.AnisoPassiveTendon(this.stretchForTMR(0))*pi*this.radForTMR(0)^2;
+            F = f.AnisoPassiveTendon(this.stretchfun(0))*pi*this.radForTMR(0)^2;
             
             % Flaeche als Funktion des Ortes
             A = @(y)this.radForTMR(y).^2*pi;
@@ -114,8 +119,8 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             
             % Berechne Stress der einzelkomponenten bei gegebenem Stretch
             % an den gegebenen y-Positionen
-            musclestress = f.AnisoPassiveMuscle(this.stretchForTMR(ycoord));
-            tendonstress = f.AnisoPassiveTendon(this.stretchForTMR(ycoord));
+            musclestress = f.AnisoPassiveMuscle(this.stretchfun(ycoord));
+            tendonstress = f.AnisoPassiveTendon(this.stretchfun(ycoord));
             
             % Umstellen von
             % F = \sigma*A = (1-r)\sigma_m + r\sigma_t
@@ -230,7 +235,7 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             
             
             % sollte an den Stellen nicht zufaellig ein Punkt gesetzt
-            % worden sein, setze einen.            
+            % worden sein, setze einen.
             if ~any(ypoints == this.constFromTo(1))
                 
                 [~,index] = min(abs(ypoints-this.constFromTo(1)));
@@ -246,7 +251,7 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
                 
             end
             
-            % Um die Symmetrie zu erhalten. Es wird aktuell noch ein 
+            % Um die Symmetrie zu erhalten. Es wird aktuell noch ein
             if ~any(ypoints == this.constFromTo(2)+2*abs(this.ylen/2 - this.constFromTo(2))-.1)
                 
                 [~,index] = min(abs(ypoints - (this.constFromTo(2) + 2*abs(this.ylen/2 - this.constFromTo(2)))-.1));
@@ -289,56 +294,48 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             [last1,last2] = size(geo.Elements);
             lastPoint = 3*geo.Elements(last1,last2-3);
             
+            pkt1 = 579;
+            pkt2 = 3*355;
             
-            
-            %% Plots dazu
-            figure
-            subplot(3,1,1)
-            plot(t,y(firstPoint,:),'r');
-            title('First Point')
-            
-            subplot(3,1,3)
-            plot(t,y(lastPoint,:),'b');
-            xlabel(['t' '[s]']);
-            title('Last Point');
-            
-            subplot(3,1,2)
-            plot(t,y(midPoint,:),'g');
-            title('Mid Point')
-            ylabel(['y-Position ' '[mm]']);
-            hold off
             
             % Die Kurven uebereinander gelegt
-            figure
-            title('Alle Kurven uebereinandergelegt');
+            title('Alle Kurven uebereinandergelegt und Aktivierung');
             hold on
             plot(t,y(midPoint,:)-this.ylen/2,'g');
             plot(t,y(lastPoint,:)-this.ylen,'b');
-            plot(t,y(3+(1:3),:),'r');
-            legend('Mid','Last','First','Location','Northeast')
+            plot(t,y(firstPoint,:),'k');
+            plot(t,y(pkt1,:)-y(pkt1,1),'y');
+            plot(t,y(pkt2,:)-y(pkt2,1),'m');
             xlabel('time [s]');
             ylabel('Position on y-axe');
             hold off
             
+%             delay = zeros(length(t),1);
+%             k = false;
+%             for i = 1 : length(t)
+%                 
+%                 for j = i : length(t)
+%                     
+%                     if (abs(y(midPoint,j)-this.ylen/2-y(firstPoint,i))<= .1)
+%                         
+%                         delay(i) = t(j);
+%                         k = true;
+%                         
+%                     end
+%                     if k
+%                         k = false;
+%                         break
+%                     end
+%                     
+%                 end
+%             end
+%             
+%             plot(delay);
             
-            figure
-            plot(t,y(midPoint,:)-this.ylen/2-y(3,:));
-            title('Differenz der Bewegung der Raender im Vergleich zur Mitte')
-            xlabel('time [s]')
-            ylabel('Position on y-axe')
             
-            MaxDifference = max(y(midPoint,:)-this.ylen/2-y(3,:));
             
-            %             %% Get the Peaks
-            %             k = Processor;
-            %             k.minV = 1/(this.Amp);
-            %             % Die Zeiten noch gedacht durch mit Zeitschrittweite multiplizieren teilen
-            %             PeakTimesFirst = k.getPeakLocations(t,y(firstPoint,:));
-            %             PeakTimesLast = k.getPeakLocations(t,y(lastPoint,:)-this.ylen);
-            %
-            %             % Fuer die Mitte anderes minV
-            %             k.minV = 1/(3*this.Amp);
-            %             PeakTimesMid = k.getPeakLocations(t,y(midPoint,:)-this.ylen/2);
+            
+            
             
         end
         
@@ -353,6 +350,8 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             this.maxYLength = this.Options.maxYLength;
             this.constFromTo = this.Options.constFromTo;
             ref = [1.03, 1.4];
+            this.Fr = this.Options.Frequency;
+            this.Amp = this.Options.Amplitude;
             
             %% Stretchfun festlegen
             % Man kann nun ueber 'Gauss Gamma' einen GaussKernel als
@@ -387,8 +386,6 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             % Transfer the [0,1] argument version into the given domain
             % length (mirror at half)
             this.stretchfun = @(y)(y<=len/2) .* (stretchfun_0_1(2*y/len)) ...
-                + (y>len/2) .* (stretchfun_0_1(1-2*(y-len/2)/len));
-            this.stretchForTMR = @(y)(y<=len/2) .* (stretchfun_0_1(2*y/len)) ...
                 + (y>len/2) .* (stretchfun_0_1(1-2*(y-len/2)/len));
             
             % Sollten Konstante Abschnitte erwuenscht sein werden hier die
@@ -429,7 +426,7 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
                 StretchLeft = @(y) (y<=len/2) .* (stretchfun_0_1(2*y/len));
                 StretchRight = @(y) (y>len/2) .* (stretchfun_0_1(1-2*(y-len/2)/len));
                 
-                this.stretchForTMR = @(x) (x < this.constFromTo(1)).*ref(1)...
+                this.stretchfun = @(x) (x < this.constFromTo(1)).*ref(1)...
                     ... Linke Seite
                     +StretchLeft((this.ylen/2 - 0)/(this.constFromTo(2) - this.constFromTo(1))*x +...
                     (0 - (this.ylen/2 - 0)/(this.constFromTo(2) - this.constFromTo(1)) * this.constFromTo(1)))...
@@ -456,13 +453,13 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             AnisoPassiveMuscle = S_m.getFunction;
             S_t = general.functions.CubicToLinear(mu(7),mu(8));
             AnisoPassiveTendon = S_t.getFunction;
-            F = AnisoPassiveTendon(this.stretchForTMR(0))*pi*this.radForTMR(0)^2;
+            F = AnisoPassiveTendon(this.stretchfun(0))*pi*this.radForTMR(0)^2;
             
             % Flaeche als Funktion des Ortes
             A = @(y)this.radForTMR(y).^2*pi;
             
-            tmrFunc=@(y) (F./A(y)-AnisoPassiveMuscle(this.stretchForTMR(y)))./...
-                (AnisoPassiveTendon(this.stretchForTMR(y))-AnisoPassiveMuscle(this.stretchForTMR(y)));
+            tmrFunc=@(y) (F./A(y)-AnisoPassiveMuscle(this.stretchfun(y)))./...
+                (AnisoPassiveTendon(this.stretchfun(y))-AnisoPassiveMuscle(this.stretchfun(y)));
             
         end
         
@@ -525,27 +522,28 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
         end
         
         % Erzeugt die Config und das Model fuer das 10^-6_50Hz Video
-        function [c,m] = createTestingConfig
+        function [c,m] = createTestingConfig(frequency,amplitude,RampMax,RampOffset)
             
             c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.25,...
-                'constFromTo',[10,40],'maxYLength',20);
-            
+                'constFromTo',[10,40],'maxYLength',20,'Frequency',frequency,'Amplitude',amplitude);
+            c.ActivationRampMax = RampMax;
+            c.ActivationRampOffset = RampOffset;
             m = c.createModel;
             m.T = 150;
             RelTol = .01;
             m.ODESolver.RelTol = RelTol;
             
-        % Ersetzt die TMR's durch die Mittelwerte der bisherigen
-        % Wichtig, das Attribut wurde in System auf public gesetzt!!
-        m.System.MuscleTendonRatioGP(1:size(m.System.MuscleTendonRatioGP,1),:)...
-            = repmat(mean(m.System.MuscleTendonRatioGP),...
-            size(m.System.MuscleTendonRatioGP,1),1);
-        
-        % Kleine Anpassung um an Stellen wirklich nur Tendon/Muscle zu
-        % haben
-        m.System.MuscleTendonRatioGP = (m.System.MuscleTendonRatioGP - ...
-            min(m.System.MuscleTendonRatioGP(:)))/(max(m.System.MuscleTendonRatioGP(:)...
-            -min(m.System.MuscleTendonRatioGP(:))))./(10^(6));            
+            % Ersetzt die TMR's durch die Mittelwerte der bisherigen
+            % Wichtig, das Attribut wurde in System auf public gesetzt!!
+            m.System.MuscleTendonRatioGP(1:size(m.System.MuscleTendonRatioGP,1),:)...
+                = repmat(mean(m.System.MuscleTendonRatioGP),...
+                size(m.System.MuscleTendonRatioGP,1),1);
+            
+            % Kleine Anpassung um an Stellen wirklich nur Tendon/Muscle zu
+            % haben
+            m.System.MuscleTendonRatioGP = (m.System.MuscleTendonRatioGP - ...
+                min(m.System.MuscleTendonRatioGP(:)))/(max(m.System.MuscleTendonRatioGP(:)...
+                -min(m.System.MuscleTendonRatioGP(:))))./(10^(6));
             
         end
         
