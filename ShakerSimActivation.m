@@ -49,7 +49,12 @@ for j = 1 : 4
                 
         end
         
-        m.DefaultMu(2) = 5*j;
+        m.DefaultMu(2) = 10;
+        
+        if i == 1
+            m.ODESolver.AbsTol = 1/10^j+1;
+            m.setGaussIntegrationRule(5);
+        end
         
         % Speichert Model und Configuration in einer Cell
         ModelsAndConfig{1,1} = c;

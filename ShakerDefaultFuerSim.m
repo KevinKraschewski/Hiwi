@@ -283,6 +283,12 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
         % Mitte und den Raendern zurueck, Kurven natuerlich uebereinander.
         
         function [MaxDifference] = getOutputofInterest(this,t,y)
+            %% Processor fuer die Auswertung der Amplituden/Peaks
+            proc = models.musclefibre.experiments.Processor;
+            proc.minV = this.Amp/2;
+            
+            
+            
             %% Bestimme die gewuenschten Punkte aus den Daten
             
             geo = this.Geometry;
@@ -294,48 +300,47 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             [last1,last2] = size(geo.Elements);
             lastPoint = 3*geo.Elements(last1,last2-3);
             
-            pkt1 = 579;
-            pkt2 = 3*355;
-            
+%             pkt1 = 579;
+%             pkt2 = 3*355;
+            Traj_Mid = y(midPoint,:)-y(midPoint,1);
+            Traj_First = y(firstPoint,:);
+            Traj_Last = y(lastPoint,:)-this.ylen;
             
             % Die Kurven uebereinander gelegt
             title('Alle Kurven uebereinandergelegt und Aktivierung');
             hold on
-            plot(t,y(midPoint,:)-this.ylen/2,'g');
-            plot(t,y(lastPoint,:)-this.ylen,'b');
-            plot(t,y(firstPoint,:),'k');
-            plot(t,y(pkt1,:)-y(pkt1,1),'y');
-            plot(t,y(pkt2,:)-y(pkt2,1),'m');
+            plot(t,Traj_Mid,'g');
+            plot(t,Traj_Last,'b');
+            plot(t,Traj_First,'k');
+%             plot(t,y(pkt1,:)-y(pkt1,1),'y');
+%             plot(t,y(pkt2,:)-y(pkt2,1),'m');
             xlabel('time [s]');
             ylabel('Position on y-axe');
             hold off
             
-%             delay = zeros(length(t),1);
-%             k = false;
-%             for i = 1 : length(t)
-%                 
-%                 for j = i : length(t)
-%                     
-%                     if (abs(y(midPoint,j)-this.ylen/2-y(firstPoint,i))<= .1)
-%                         
-%                         delay(i) = t(j);
-%                         k = true;
-%                         
-%                     end
-%                     if k
-%                         k = false;
-%                         break
-%                     end
-%                     
-%                 end
-%             end
-%             
-%             plot(delay);
+                                   
+            %% Extract the Peaks and Amplitudes
             
+            % Vectors with all the Peak indices
+            PeaksMid = proc.getPeakIdx(t,Traj_Mid);
+            PeaksFirst = proc.getPeakIdx(t,Traj_First);
+            PeaksLast = proc.getPeakIdx(t,Traj_Last);
             
+            % Negative values mean that first points are ahead of the Mids
+            timeShiftAbs = diff(t(PeaksMid)-t(PeaksFirst));
+            % Mean of the time differences negative value means that
+            % the Mid "walks" behind the first/last Points
+            timeShift = mean(timeShiftAbs);
             
+            % Max Amplitudes and time
+            maxAmp_Mid = max(Traj_Mid(PeaksMid));
+            maxAmp_MidTime = t(maxAmp_Mid == Traj_Mid);
             
+            maxAmp_First = max(Traj_First(PeaksFirst));
+            maxAmp_FirstTime = t(maxAmp_First == Traj_First);
             
+            maxAmp_Last = max(Traj_Last(PeaksLast));
+            maxAmp_MidTime = t(maxAmp_Last == Traj_Last);            
             
         end
         
@@ -529,7 +534,7 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             c.ActivationRampMax = RampMax;
             c.ActivationRampOffset = RampOffset;
             m = c.createModel;
-            m.T = 150;
+            m.T = 500;
             RelTol = .01;
             m.ODESolver.RelTol = RelTol;
             
