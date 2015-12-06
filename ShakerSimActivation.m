@@ -12,7 +12,7 @@ SimulationTime = zeros(NoOfSteps,1);
 
 % Speichert in cell Spalte 1 die Zeiten und in der Spalte 2 die Ergebnisse
 % der Rechnung. Zeilenweise sind die untersch. Simulationen gespeichert
-SimResults = cell(NoOfSteps,2);
+SimResults_Time = cell(NoOfSteps,2);
 
 % Der letzte Zeitpunkt der Rechnung wird gespeichert um eventuelle
 % fruehzeitige Abbrueche zu erkennen
@@ -21,58 +21,53 @@ ElapsedTime = cell(NoOfSteps,1);
 % Speichert die untersch. Kraefte auch in einer Cell
 DF = cell(NoOfSteps,1);
 
-% Schleife zum aendern der maximal Aktivierung und der
-% Vollaktivierungsdauer
-for j = 1 : 4
+%% Schleifen fuer den Aktivierungs/Frequenzen Part
+for i = 2 : 8
     
     
-    % Schleife ueber die unterschiedlichen Frequenz/Amplituden
-    % Kombinationen
-    for i = 1 : 4
-        
-        switch i
-            case 1
-                
-                [c,m] = ShakerDefaultFuerSim.createTestingConfig(15,4/10,1/j^2,10*pi);
-                
-            case 2
-                
-                [c,m] = ShakerDefaultFuerSim.createTestingConfig(15,12/10,1/j^2,10*pi);
-                
-            case 3
-                
-                [c,m] = ShakerDefaultFuerSim.createTestingConfig(50,4/10,1/j^2,10*pi);
-                
-            case 4
-                
-                [c,m] = ShakerDefaultFuerSim.createTestingConfig(50,12/10,1/j^2,10*pi);
-                
-        end
-        
+    parfor j = 1 : 20
+        [c,m] = ShakerDefaultFuerSim.createTestingConfig(50-(i-1)*5,12/10,1-(j-1)*(0.05),30);
+        m.dt = .25
         m.DefaultMu(2) = 10;
-        
-        if i == 1
-            m.ODESolver.AbsTol = 1/10^j+1;
-            m.setGaussIntegrationRule(5);
-        end
-        
-        % Speichert Model und Configuration in einer Cell
-        ModelsAndConfig{1,1} = c;
-        ModelsAndConfig{1,2} = m;
-        
-        
         %% The Simulation Part with saving the used time into a vector
         start = tic;
         [t,y] = m.simulate;
         SimulationTime = toc(start); % Zeiten auf  ~4.4 GHz
-        DF{1} = m.getResidualForces(t,y);
-        ElapsedTime{1} = t(size(t,2)); % Um vorzeitigen Abbruch zu erkennen
+        DF{j} = m.getResidualForces(t,y);
+        ElapsedTime{j} = t(size(t,2)); % Um vorzeitigen Abbruch zu erkennen
         
         %% Saving the Results into a cell
-        SimResults{1,1}=t;
-        SimResults{1,2}=y;
-        
-        %% Speichert die meisten Variablen in eine Datei "Results".
-        save(['Activation' num2str(i) '_' num2str(j) '.mat'],'SimResults','SimulationTime','ElapsedTime','DF','ModelsAndConfig');
+        SimResults_Time{j}=t;
+        SimResults_Y{j}=y;
+        % Speichert Model und Configuration in einer Cell
+        Config{j} = c;
+        Model{j} = m;
     end
+    %% Speichert die meisten Variablen in eine Datei "Results".
+    save(['SmallActivationChange' num2str(i+3) '_12mm' '.mat'],'SimResults_Time','SimResults_Y','SimulationTime','ElapsedTime','DF','Config','Model');
+end
+
+%% Schleife fuer den Amplituden/Frequenz Part
+for i = 1 : 7
+    parfor j = 1 : 18
+        [c,m] = ShakerDefaultFuerSim.createTestingConfig(50-(i-1)*5,(12-(j-1)/2)/10,1,30);
+        m.dt = .25
+        m.DefaultMu(2) = 10;
+        %% The Simulation Part with saving the used time into a vector
+        start = tic;
+        [t,y] = m.simulate;
+        SimulationTime = toc(start); % Zeiten auf  ~4.4 GHz
+        DF{j} = m.getResidualForces(t,y);
+        ElapsedTime{j} = t(size(t,2)); % Um vorzeitigen Abbruch zu erkennen
+        
+        %% Saving the Results into a cell
+        SimResults_Time{j}=t;
+        SimResults_Y{j}=y;
+        % Speichert Model und Configuration in einer Cell
+        Config{j} = c;
+        Model{j} = m;
+    end
+    
+    save(['SmallAmplitudeChange' num2str(i) '.mat'],'SimResults_Time','SimResults_Y','SimulationTime','ElapsedTime','DF','Config','Model');
+    
 end

@@ -279,10 +279,11 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
         
         %% Plots the Position of chosen y-points over the time
         % here we've chosen the first, the mid, and the last point
-        % Gibt ausserdem die maximale Differenz zwischen der Y-Position der
-        % Mitte und den Raendern zurueck, Kurven natuerlich uebereinander.
+        % Plottet die entsprechenden Trajektorien und bestimmt die
+        % maximalen Amplituden, die Zeitpunkte an denen diese Auftreten und
+        % den time-shift zwischen dem mittleren Punkt und den Rändern
         
-        function [MaxDifference] = getOutputofInterest(this,t,y)
+        function [timeShift,maxAmp,maxAmpTime] = getOutputOfInterest(this,t,y)
             %% Processor fuer die Auswertung der Amplituden/Peaks
             proc = models.musclefibre.experiments.Processor;
             proc.minV = this.Amp/2;
@@ -300,8 +301,6 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             [last1,last2] = size(geo.Elements);
             lastPoint = 3*geo.Elements(last1,last2-3);
             
-%             pkt1 = 579;
-%             pkt2 = 3*355;
             Traj_Mid = y(midPoint,:)-y(midPoint,1);
             Traj_First = y(firstPoint,:);
             Traj_Last = y(lastPoint,:)-this.ylen;
@@ -312,8 +311,6 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             plot(t,Traj_Mid,'g');
             plot(t,Traj_Last,'b');
             plot(t,Traj_First,'k');
-%             plot(t,y(pkt1,:)-y(pkt1,1),'y');
-%             plot(t,y(pkt2,:)-y(pkt2,1),'m');
             xlabel('time [s]');
             ylabel('Position on y-axe');
             hold off
@@ -340,8 +337,10 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             maxAmp_FirstTime = t(maxAmp_First == Traj_First);
             
             maxAmp_Last = max(Traj_Last(PeaksLast));
-            maxAmp_MidTime = t(maxAmp_Last == Traj_Last);            
+            maxAmp_LastTime = t(maxAmp_Last == Traj_Last);            
             
+            maxAmp = [maxAmp_First,maxAmp_Mid,maxAmp_Last];
+            maxAmpTime = [maxAmp_FirstTime,maxAmp_MidTime,maxAmp_LastTime];
         end
         
         %% Calculates the TMRFunc outside of the getGeo Method
