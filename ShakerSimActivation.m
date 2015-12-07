@@ -22,7 +22,7 @@ ElapsedTime = cell(NoOfSteps,1);
 DF = cell(NoOfSteps,1);
 
 %% Schleifen fuer den Aktivierungs/Frequenzen Part
-for i = 2 : 8
+for i = 1 : 8
     
     
     parfor j = 1 : 20
@@ -48,7 +48,7 @@ for i = 2 : 8
 end
 
 %% Schleife fuer den Amplituden/Frequenz Part
-for i = 1 : 7
+for i = 1 : 8
     parfor j = 1 : 18
         [c,m] = ShakerDefaultFuerSim.createTestingConfig(50-(i-1)*5,(12-(j-1)/2)/10,1,30);
         m.dt = .25

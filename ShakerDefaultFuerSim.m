@@ -283,10 +283,11 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
         % maximalen Amplituden, die Zeitpunkte an denen diese Auftreten und
         % den time-shift zwischen dem mittleren Punkt und den Rändern
         
-        function [timeShift,maxAmp,maxAmpTime] = getOutputOfInterest(this,t,y)
+        function [timeShift,maxAmp,maxAmpTime,maxDifference] = getOutputOfInterest(this,t,y)
+            close all
             %% Processor fuer die Auswertung der Amplituden/Peaks
             proc = models.musclefibre.experiments.Processor;
-            proc.minV = this.Amp/2;
+            proc.minV = this.Amp*2;
             
             
             
@@ -315,32 +316,69 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             ylabel('Position on y-axe');
             hold off
             
-                                   
-            %% Extract the Peaks and Amplitudes
             
-            % Vectors with all the Peak indices
-            PeaksMid = proc.getPeakIdx(t,Traj_Mid);
-            PeaksFirst = proc.getPeakIdx(t,Traj_First);
-            PeaksLast = proc.getPeakIdx(t,Traj_Last);
             
-            % Negative values mean that first points are ahead of the Mids
-            timeShiftAbs = diff(t(PeaksMid)-t(PeaksFirst));
-            % Mean of the time differences negative value means that
-            % the Mid "walks" behind the first/last Points
-            timeShift = mean(timeShiftAbs);
+            %% Um nur die voll aktivierten in die Daten aufzunehmen
             
-            % Max Amplitudes and time
-            maxAmp_Mid = max(Traj_Mid(PeaksMid));
-            maxAmp_MidTime = t(maxAmp_Mid == Traj_Mid);
+            if t(end) > 40
+                
+                %% Extract the Peaks and Amplitudes
+                
+                % Vectors with all the Peak indices
+                PeaksMid = proc.getPeakIdx(t,Traj_Mid);
+                PeaksFirst = proc.getPeakIdx(t,Traj_First);
+                PeaksLast = proc.getPeakIdx(t,Traj_Last);
+                
+                
+                % Falls die Laengen nicht passen -> "Ueberfluessiges" weglassen sd. keine
+                % Auswirkungen auf timeShift
+                if length(PeaksMid) ~= length(PeaksFirst)
+                    if length(PeaksMid) > length(PeaksFirst)
+                        PeaksMid = PeaksMid(1:length(PeaksFirst));
+                    else
+                        PeaksFirst = PeaksFirst(1:length(PeaksMid));
+                    end
+                end
+                
+                % Die ersten Rauswerfen
+                if length(PeaksMid) < 4
+                    1;
+                else
+                
+                PeaksMid = PeaksMid(4:end);
+                PeaksFirst = PeaksFirst(4:end);
+                PeaksLast = PeaksLast(4:end);
+                
+                end
+                % Negative values mean that first points are ahead of the Mids
+                timeShiftAbs = diff(t(PeaksMid)-t(PeaksFirst));
+                % Mean of the time differences negative value means that
+                % the Mid "walks" behind the first/last Points
+                timeShift = mean(timeShiftAbs);
+                
+                % Max Amplitudes and time
+                maxAmp_Mid = max(Traj_Mid(PeaksMid));
+                maxAmp_MidTime = t(maxAmp_Mid == Traj_Mid);
+                
+                maxAmp_First = max(Traj_First(PeaksFirst));
+                maxAmp_FirstTime = t(maxAmp_First == Traj_First);
+                
+                maxAmp_Last = max(Traj_Last(PeaksLast));
+                maxAmp_LastTime = t(maxAmp_Last == Traj_Last);
+                
+                maxAmp = [maxAmp_First,maxAmp_Mid,maxAmp_Last];
+                maxAmpTime = [maxAmp_FirstTime,maxAmp_MidTime,maxAmp_LastTime];
+                
+                maxDifference = abs(maxAmp_First-maxAmp_Mid);
+                
+            else
+                timeShift = NaN;
+                maxAmp = NaN;
+                maxAmpTime = NaN;
+                maxDifference = NaN;
+                
+            end
             
-            maxAmp_First = max(Traj_First(PeaksFirst));
-            maxAmp_FirstTime = t(maxAmp_First == Traj_First);
-            
-            maxAmp_Last = max(Traj_Last(PeaksLast));
-            maxAmp_LastTime = t(maxAmp_Last == Traj_Last);            
-            
-            maxAmp = [maxAmp_First,maxAmp_Mid,maxAmp_Last];
-            maxAmpTime = [maxAmp_FirstTime,maxAmp_MidTime,maxAmp_LastTime];
         end
         
         %% Calculates the TMRFunc outside of the getGeo Method
