@@ -552,7 +552,11 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             velo_dir(2,geo.Elements(1:4,geo.MasterFaces(3,:))) = true;
             velo_dir(2,geo.Elements(geo.NumElements-3:geo.NumElements,...
                 geo.MasterFaces(4,:))) = true;
-            velo_dir_val(velo_dir) = 1;
+            % Die Funktion wurde aus Simulationsdaten generiert, passt nicht
+            % zu 100% aber verbessert das Problem deutlich!
+            AmplitudenKorrektor =@(x) 317.6237./x + 78.3460./x.^2 - 2.3049.*10^3./x.^3 +1.2644.*10^4./x.^4;
+            velo_dir_val(velo_dir) = 1/(AmplitudenKorrektor(this.Fr));
+            
         end
         
         function anull = seta0(~, anull)
@@ -591,7 +595,7 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             c.ActivationRampMax = RampMax;
             c.ActivationRampOffset = RampOffset;
             m = c.createModel;
-            m.T = 250;
+            m.T = 500;
             RelTol = .01;
             m.ODESolver.RelTol = RelTol;
             
