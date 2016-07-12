@@ -283,11 +283,11 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
         % maximalen Amplituden, die Zeitpunkte an denen diese Auftreten und
         % den time-shift zwischen dem mittleren Punkt und den Rändern
         
-        function [timeShift,maxAmp,maxAmpTime,maxDifference] = getOutputOfInterest(this,t,y)
-            close all
+        function [timeShift,meanAmp_Mid,maxAmpTime,meanDifference] = getOutputOfInterest(this,t,y)
+            %             close all
             %% Processor fuer die Auswertung der Amplituden/Peaks
             proc = models.musclefibre.experiments.Processor;
-            proc.minV = this.Amp;
+            proc.minV = this.Amp/2;
             
             
             
@@ -306,15 +306,15 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             Traj_First = y(firstPoint,:);
             Traj_Last = y(lastPoint,:)-this.ylen;
             
-            % Die Kurven uebereinander gelegt
-            title('Alle Kurven uebereinandergelegt und Aktivierung');
-            hold on
-            plot(t,Traj_Mid,'g');
-            plot(t,Traj_Last,'b');
-            plot(t,Traj_First,'k');
-            xlabel('time [s]');
-            ylabel('Position on y-axe');
-            hold off
+            %             % Die Kurven uebereinander gelegt
+            %             title('Alle Kurven uebereinandergelegt und Aktivierung');
+            %             hold on
+            %             plot(t,Traj_Mid,'g');
+            %             plot(t,Traj_Last,'b');
+            %             plot(t,Traj_First,'k');
+            %             xlabel('time [s]');
+            %             ylabel('Position on y-axe');
+            % %             hold off
             
             
             
@@ -344,17 +344,17 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
                     % the Mid "walks" behind the first/last Points
                     timeShift = mean(timeShiftAbs);
                     
-                    % Bereinige die Peaks um die Verschiebung alle um den Wert der Randverschiebung..?!
-                    for i = 1 : length(PeaksMid)-1
-                        % Ich teile die Trajektoren in Abschnitte Peak to
-                        % Peak auf und Verschiebe den jeweils rechten Peak
-                        % um die Differenz zwischen lokales Minimum und
-                        % Null der Raender
-                        TrajSplitter = Traj_First(PeaksFirst(i):PeaksFirst(i+1));
-                        Traj_First(PeaksFirst(i+1)) = Traj_First(PeaksFirst(i+1))-min(TrajSplitter);
-                        Traj_Mid(PeaksMid(i+1)) = Traj_Mid(PeaksMid(i+1))-min(TrajSplitter);
-                        Traj_Last(PeaksLast(i+1)) = Traj_Last(PeaksLast(i+1))-min(TrajSplitter);
-                    end
+                    %                     % Bereinige die Peaks um die Verschiebung alle um den Wert der Randverschiebung..?!
+                    %                     for i = 1 : length(PeaksMid)-1
+                    %                         % Ich teile die Trajektoren in Abschnitte Peak to
+                    %                         % Peak auf und Verschiebe den jeweils rechten Peak
+                    %                         % um die Differenz zwischen lokales Minimum und
+                    %                         % Null der Raender
+                    %                         TrajSplitter = Traj_First(PeaksFirst(i):PeaksFirst(i+1));
+                    %                         Traj_First(PeaksFirst(i+1)) = Traj_First(PeaksFirst(i+1))-min(TrajSplitter);
+                    %                         Traj_Mid(PeaksMid(i+1)) = Traj_Mid(PeaksMid(i+1))-min(TrajSplitter);
+                    %                         Traj_Last(PeaksLast(i+1)) = Traj_Last(PeaksLast(i+1))-min(TrajSplitter);
+                    %                     end
                     
                     % Die ersten Rauswerfen
                     if length(PeaksMid) < 4
@@ -365,6 +365,20 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
                         PeaksLast = PeaksLast(4:end);
                         
                     end
+                    
+                    % Jetzt ueberall die MW genommen, sowie auch negative
+                    % Werte zugelassen...
+                    
+                    meanAmp_Mid = mean(Traj_Mid(PeaksMid));
+                    
+                    meanAmp_First = mean(Traj_First(PeaksFirst));
+                    
+                    meanAmp_Last = mean(Traj_Last(PeaksLast));
+                    
+                    %Interessant
+                    meanDifference = mean(Traj_Mid(PeaksMid)-Traj_First(PeaksFirst));
+                    
+                    meanAmp = [meanAmp_First,meanAmp_Mid,meanAmp_Last];
                     
                     % Evtl. einfach den 2. Peak nach Aktivierung
                     % Max Amplitudes and time
@@ -385,17 +399,17 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
                     
                 else
                     timeShift = NaN;
-                    maxAmp = NaN;
+                    meanAmp = NaN;
                     maxAmpTime = NaN;
-                    maxDifference = NaN;
+                    meanDifference = NaN;
                     
                 end
                 
             else
                 timeShift = NaN;
-                maxAmp = NaN;
+                meanAmp = NaN;
                 maxAmpTime = NaN;
-                maxDifference = NaN;
+                meanDifference = NaN;
                 
             end
             
@@ -525,6 +539,32 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             
         end
         
+        
+        function alpha = getAlphaRamp(this, timeDots, activations)
+            % Creates a linearly increasing scalar function starting at
+            % starttime milliseconds ranging from zero to alphamax over
+            % ramptime.
+            %
+            % Parameters:
+            % ramptime: The time over which to increase to alphamax. If
+            % less or equal to zero, an all zero function is returned.
+            % alphamax: The maximum value to achieve. @type double @default
+            % AMuscleConfig.ActivationRampMax
+            % starttime: The offset time (in milliseconds) to wait before
+            % increasing the signal. @type double
+            % @default AMuscleConfig.ActivationRampOffset
+            %             alpha = @(t)1;
+            if nargin < 4
+                activations = this.ActivationRampOffset;
+                if nargin < 3
+                    timeDots = this.ActivationRampMax;
+                end
+            end
+            ramp = general.functions.PiecewiseLinear(timeDots, activations);
+            alpha = ramp.getFunction;
+        end
+        
+        
     end
     methods(Access=protected)
         
@@ -554,15 +594,18 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
                 geo.MasterFaces(4,:))) = true;
             % Die Funktion wurde aus Simulationsdaten generiert, passt nicht
             % zu 100% aber verbessert das Problem deutlich!
-            AmplitudenKorrektor =@(x) 317.6237./x + 78.3460./x.^2 - 2.3049.*10^3./x.^3 +1.2644.*10^4./x.^4;
+            %             AmplitudenKorrektor =@(x) 317.6237./x + 78.3460./x.^2 - 2.3049.*10^3./x.^3 +1.2644.*10^4./x.^4;
+            format long
+            AmplitudenKorrektor =@(x) 305 * 1./x;
             velo_dir_val(velo_dir) = 1/(AmplitudenKorrektor(this.Fr));
-            
         end
         
         function anull = seta0(~, anull)
             % Direction is y
             anull(2,:,:) = 1;
         end
+        
+        
         
     end
     
@@ -588,16 +631,26 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
         end
         
         % Erzeugt die Config und das Model fuer das 10^-6_50Hz Video
-        function [c,m] = createTestingConfig(frequency,amplitude,RampMax,RampOffset)
+        % in varargin wird jetzt die Toleranz fuer die Diskretisierung
+        % gesetzt
+        function [c,m] = createTestingConfig(frequency,amplitude,RampMax,RampOffset,varargin)
+            if(isempty(varargin))
+                
+                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.25,...
+                    'constFromTo',[10,40],'maxYLength',20,'Frequency',frequency,'Amplitude',amplitude);
+                
+            else
+                
+                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',varargin{1},...
+                    'constFromTo',[10,40],'maxYLength',20,'Frequency',frequency,'Amplitude',amplitude);
+            end
             
-            c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.25,...
-                'constFromTo',[10,40],'maxYLength',20,'Frequency',frequency,'Amplitude',amplitude);
             c.ActivationRampMax = RampMax;
             c.ActivationRampOffset = RampOffset;
             m = c.createModel;
-            m.T = 500;
-            RelTol = .01;
-            m.ODESolver.RelTol = RelTol;
+            m.T = 150;
+            m.ODESolver.RelTol = .01;
+            m.ODESolver.AbsTol = .1;
             
             % Ersetzt die TMR's durch die Mittelwerte der bisherigen
             % Wichtig, das Attribut wurde in System auf public gesetzt!!
@@ -606,10 +659,12 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
                 size(m.System.MuscleTendonRatioGP,1),1);
             
             % Kleine Anpassung um an Stellen wirklich nur Tendon/Muscle zu
-            % haben
+            % haben.
             m.System.MuscleTendonRatioGP = (m.System.MuscleTendonRatioGP - ...
                 min(m.System.MuscleTendonRatioGP(:)))/(max(m.System.MuscleTendonRatioGP(:)...
                 -min(m.System.MuscleTendonRatioGP(:))))./(10^(6));
+            
+            
             
         end
         
