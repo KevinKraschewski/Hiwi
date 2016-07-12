@@ -279,10 +279,18 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
         
         %% Plots the Position of chosen y-points over the time
         % here we've chosen the first, the mid, and the last point
-        % Gibt ausserdem die maximale Differenz zwischen der Y-Position der
-        % Mitte und den Raendern zurueck, Kurven natuerlich uebereinander.
+        % Plottet die entsprechenden Trajektorien und bestimmt die
+        % maximalen Amplituden, die Zeitpunkte an denen diese Auftreten und
+        % den time-shift zwischen dem mittleren Punkt und den Rändern
         
-        function [MaxDifference] = getOutputofInterest(this,t,y)
+        function [timeShift,meanAmp_Mid,maxAmpTime,meanDifference] = getOutputOfInterest(this,t,y)
+            %             close all
+            %% Processor fuer die Auswertung der Amplituden/Peaks
+            proc = models.musclefibre.experiments.Processor;
+            proc.minV = this.Amp/2;
+            
+            
+            
             %% Bestimme die gewuenschten Punkte aus den Daten
             
             geo = this.Geometry;
@@ -294,48 +302,116 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             [last1,last2] = size(geo.Elements);
             lastPoint = 3*geo.Elements(last1,last2-3);
             
-            pkt1 = 579;
-            pkt2 = 3*355;
+            Traj_Mid = y(midPoint,:)-y(midPoint,1);
+            Traj_First = y(firstPoint,:);
+            Traj_Last = y(lastPoint,:)-this.ylen;
             
-            
-            % Die Kurven uebereinander gelegt
-            title('Alle Kurven uebereinandergelegt und Aktivierung');
-            hold on
-            plot(t,y(midPoint,:)-this.ylen/2,'g');
-            plot(t,y(lastPoint,:)-this.ylen,'b');
-            plot(t,y(firstPoint,:),'k');
-            plot(t,y(pkt1,:)-y(pkt1,1),'y');
-            plot(t,y(pkt2,:)-y(pkt2,1),'m');
-            xlabel('time [s]');
-            ylabel('Position on y-axe');
-            hold off
-            
-%             delay = zeros(length(t),1);
-%             k = false;
-%             for i = 1 : length(t)
-%                 
-%                 for j = i : length(t)
-%                     
-%                     if (abs(y(midPoint,j)-this.ylen/2-y(firstPoint,i))<= .1)
-%                         
-%                         delay(i) = t(j);
-%                         k = true;
-%                         
-%                     end
-%                     if k
-%                         k = false;
-%                         break
-%                     end
-%                     
-%                 end
-%             end
-%             
-%             plot(delay);
+            %             % Die Kurven uebereinander gelegt
+            %             title('Alle Kurven uebereinandergelegt und Aktivierung');
+            %             hold on
+            %             plot(t,Traj_Mid,'g');
+            %             plot(t,Traj_Last,'b');
+            %             plot(t,Traj_First,'k');
+            %             xlabel('time [s]');
+            %             ylabel('Position on y-axe');
+            % %             hold off
             
             
             
-            
-            
+            if t(end) > 20
+                %% Extract the Peaks and Amplitudes
+                % Vectors with all the Peak indices
+                PeaksMid = proc.getPeakIdx(t,Traj_Mid);
+                PeaksFirst = proc.getPeakIdx(t,Traj_First);
+                PeaksLast = proc.getPeakIdx(t,Traj_Last);
+                
+                %% Um nur die voll aktivierten in die Daten aufzunehmen
+                
+                if length(PeaksFirst) > 4
+                    % Falls die Laengen nicht passen -> "Ueberfluessiges" weglassen sd. keine
+                    % Auswirkungen auf timeShift
+                    if length(PeaksMid) ~= length(PeaksFirst)
+                        if length(PeaksMid) > length(PeaksFirst)
+                            PeaksMid = PeaksMid(1:length(PeaksFirst));
+                        else
+                            PeaksFirst = PeaksFirst(1:length(PeaksMid));
+                        end
+                    end
+                    
+                    % Pos Values -> Peak mid after Peak of first
+                    timeShiftAbs = t(PeaksMid)-t(PeaksFirst);
+                    % Mean of the time differences negative value means that
+                    % the Mid "walks" behind the first/last Points
+                    timeShift = mean(timeShiftAbs);
+                    
+                    %                     % Bereinige die Peaks um die Verschiebung alle um den Wert der Randverschiebung..?!
+                    %                     for i = 1 : length(PeaksMid)-1
+                    %                         % Ich teile die Trajektoren in Abschnitte Peak to
+                    %                         % Peak auf und Verschiebe den jeweils rechten Peak
+                    %                         % um die Differenz zwischen lokales Minimum und
+                    %                         % Null der Raender
+                    %                         TrajSplitter = Traj_First(PeaksFirst(i):PeaksFirst(i+1));
+                    %                         Traj_First(PeaksFirst(i+1)) = Traj_First(PeaksFirst(i+1))-min(TrajSplitter);
+                    %                         Traj_Mid(PeaksMid(i+1)) = Traj_Mid(PeaksMid(i+1))-min(TrajSplitter);
+                    %                         Traj_Last(PeaksLast(i+1)) = Traj_Last(PeaksLast(i+1))-min(TrajSplitter);
+                    %                     end
+                    
+                    % Die ersten Rauswerfen
+                    if length(PeaksMid) < 4
+                    else
+                        
+                        PeaksMid = PeaksMid(4:end);
+                        PeaksFirst = PeaksFirst(4:end);
+                        PeaksLast = PeaksLast(4:end);
+                        
+                    end
+                    
+                    % Jetzt ueberall die MW genommen, sowie auch negative
+                    % Werte zugelassen...
+                    
+                    meanAmp_Mid = mean(Traj_Mid(PeaksMid));
+                    
+                    meanAmp_First = mean(Traj_First(PeaksFirst));
+                    
+                    meanAmp_Last = mean(Traj_Last(PeaksLast));
+                    
+                    %Interessant
+                    meanDifference = mean(Traj_Mid(PeaksMid)-Traj_First(PeaksFirst));
+                    
+                    meanAmp = [meanAmp_First,meanAmp_Mid,meanAmp_Last];
+                    
+                    % Evtl. einfach den 2. Peak nach Aktivierung
+                    % Max Amplitudes and time
+                    maxAmp_Mid = max(Traj_Mid(PeaksMid));
+                    maxAmp_MidTime = t(maxAmp_Mid == Traj_Mid);
+                    
+                    maxAmp_First = max(Traj_First(PeaksFirst));
+                    maxAmp_FirstTime = t(maxAmp_First == Traj_First);
+                    
+                    maxAmp_Last = max(Traj_Last(PeaksLast));
+                    maxAmp_LastTime = t(maxAmp_Last == Traj_Last);
+                    
+                    maxAmp = [maxAmp_First,maxAmp_Mid,maxAmp_Last];
+                    maxAmpTime = [maxAmp_FirstTime,maxAmp_MidTime,maxAmp_LastTime];
+                    
+                    
+                    maxDifference = (maxAmp_Mid-maxAmp_First)./maxAmp_First;
+                    
+                else
+                    timeShift = NaN;
+                    meanAmp = NaN;
+                    maxAmpTime = NaN;
+                    meanDifference = NaN;
+                    
+                end
+                
+            else
+                timeShift = NaN;
+                meanAmp = NaN;
+                maxAmpTime = NaN;
+                meanDifference = NaN;
+                
+            end
             
         end
         
@@ -463,6 +539,32 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             
         end
         
+        
+        function alpha = getAlphaRamp(this, timeDots, activations)
+            % Creates a linearly increasing scalar function starting at
+            % starttime milliseconds ranging from zero to alphamax over
+            % ramptime.
+            %
+            % Parameters:
+            % ramptime: The time over which to increase to alphamax. If
+            % less or equal to zero, an all zero function is returned.
+            % alphamax: The maximum value to achieve. @type double @default
+            % AMuscleConfig.ActivationRampMax
+            % starttime: The offset time (in milliseconds) to wait before
+            % increasing the signal. @type double
+            % @default AMuscleConfig.ActivationRampOffset
+            %             alpha = @(t)1;
+            if nargin < 4
+                activations = this.ActivationRampOffset;
+                if nargin < 3
+                    timeDots = this.ActivationRampMax;
+                end
+            end
+            ramp = general.functions.PiecewiseLinear(timeDots, activations);
+            alpha = ramp.getFunction;
+        end
+        
+        
     end
     methods(Access=protected)
         
@@ -490,13 +592,20 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
             velo_dir(2,geo.Elements(1:4,geo.MasterFaces(3,:))) = true;
             velo_dir(2,geo.Elements(geo.NumElements-3:geo.NumElements,...
                 geo.MasterFaces(4,:))) = true;
-            velo_dir_val(velo_dir) = 1;
+            % Die Funktion wurde aus Simulationsdaten generiert, passt nicht
+            % zu 100% aber verbessert das Problem deutlich!
+            %             AmplitudenKorrektor =@(x) 317.6237./x + 78.3460./x.^2 - 2.3049.*10^3./x.^3 +1.2644.*10^4./x.^4;
+            format long
+            AmplitudenKorrektor =@(x) 305 * 1./x;
+            velo_dir_val(velo_dir) = 1/(AmplitudenKorrektor(this.Fr));
         end
         
         function anull = seta0(~, anull)
             % Direction is y
             anull(2,:,:) = 1;
         end
+        
+        
         
     end
     
@@ -522,16 +631,26 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
         end
         
         % Erzeugt die Config und das Model fuer das 10^-6_50Hz Video
-        function [c,m] = createTestingConfig(frequency,amplitude,RampMax,RampOffset)
+        % in varargin wird jetzt die Toleranz fuer die Diskretisierung
+        % gesetzt
+        function [c,m] = createTestingConfig(frequency,amplitude,RampMax,RampOffset,varargin)
+            if(isempty(varargin))
+                
+                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.25,...
+                    'constFromTo',[10,40],'maxYLength',20,'Frequency',frequency,'Amplitude',amplitude);
+                
+            else
+                
+                c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',varargin{1},...
+                    'constFromTo',[10,40],'maxYLength',20,'Frequency',frequency,'Amplitude',amplitude);
+            end
             
-            c = ShakerDefaultFuerSim('Stretch','Gauss 0.3','TOL',.25,...
-                'constFromTo',[10,40],'maxYLength',20,'Frequency',frequency,'Amplitude',amplitude);
             c.ActivationRampMax = RampMax;
             c.ActivationRampOffset = RampOffset;
             m = c.createModel;
             m.T = 150;
-            RelTol = .01;
-            m.ODESolver.RelTol = RelTol;
+            m.ODESolver.RelTol = .01;
+            m.ODESolver.AbsTol = .1;
             
             % Ersetzt die TMR's durch die Mittelwerte der bisherigen
             % Wichtig, das Attribut wurde in System auf public gesetzt!!
@@ -540,10 +659,12 @@ classdef ShakerDefaultFuerSim < models.muscle.AMuscleConfig
                 size(m.System.MuscleTendonRatioGP,1),1);
             
             % Kleine Anpassung um an Stellen wirklich nur Tendon/Muscle zu
-            % haben
+            % haben.
             m.System.MuscleTendonRatioGP = (m.System.MuscleTendonRatioGP - ...
                 min(m.System.MuscleTendonRatioGP(:)))/(max(m.System.MuscleTendonRatioGP(:)...
                 -min(m.System.MuscleTendonRatioGP(:))))./(10^(6));
+            
+            
             
         end
         
